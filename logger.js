@@ -1,7 +1,7 @@
-const fs = require('fs');
-const path = require('path');
-const readline = require('readline');
-const config = require('./config');
+import fs from 'fs';
+import path from 'path';
+import readline from 'readline';
+import * as config from './config.js';
 
 const logDirectory = path.resolve(config.logsPath);
 if (config.enableFileLogging) {
@@ -95,4 +95,4 @@ const logger = {
   },
 };
 
-module.exports = logger;
+export default logger;

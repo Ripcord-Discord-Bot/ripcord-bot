@@ -1,10 +1,10 @@
-require('dotenv').config();
-const readline = require('readline');
-const { Client, GatewayIntentBits, Events } = require('discord.js');
-const config = require('./config');
-const logger = require('./logger');
-const commands = require('./commands');
-const filter = require('./filter').default;
+import 'dotenv/config.js';
+import readline from 'readline';
+import { Client, GatewayIntentBits, Events } from 'discord.js';
+import * as config from './config.js';
+import logger from './logger.js';
+import * as commands from './commands.js';
+import filter from './filter.js';
 
 const token = process.env.DISCORD_TOKEN;
 if (!token) {
@@ -51,7 +51,9 @@ function shutdown() {
   process.exit(0);
 }
 
-process.on('SIGINT', shutdown);
+process.on('SIGINT', () => {
+  logger.terminalOutput('Use the "exit" command to exit gracefully.');
+});
 
 client.on(Events.MessageCreate, async (message) => {
   if (message.author.bot) return;

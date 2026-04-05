@@ -2,11 +2,14 @@
   "name": "ripcord-bot",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "Minimal Discord bot environment",
   "main": "index.js",
   "scripts": {
     "dev": "node index.js",
-    "start": "node index.js"
+    "start": "node index.js",
+    "setup": "node setup.js",
+    "cleanup": "node cleanup.js"
   },
   "engines": {
     "node": ">=18.0.0"
