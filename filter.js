@@ -34,22 +34,6 @@ async function checkAndModerate(message, logger) {
   return true;
 }
 
-async function addFilteredWord(word) {
-  const normalized = word.toLowerCase();
-  if (!filteredWords.includes(normalized)) {
-    filteredWords.push(normalized);
-  }
-}
-
-async function removeFilteredWord(word) {
-  const normalized = word.toLowerCase();
-  const index = filteredWords.indexOf(normalized);
-  if (index !== -1) {
-    filteredWords.splice(index, 1);
-  }
-}
-
-
 export default {
   checkAndModerate,
   filteredWords,
