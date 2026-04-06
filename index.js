@@ -11,8 +11,10 @@ import { setupTerminal, setupSigintHandler } from './terminal.js';
 // Verify bot token is available
 const token = process.env.DISCORD_TOKEN;
 if (!token) {
-  logger.error('Missing DISCORD_TOKEN in .env');
-  process.exit(1);
+  (async () => {
+    await logger.error('Missing DISCORD_TOKEN in .env');
+    process.exit(1);
+  })();
 }
 
 // Create Discord client with necessary intents
@@ -24,11 +26,11 @@ const client = new Client({
   ],
 });
 
-logger.info('Starting Ripcord Bot...');
+await logger.info('Starting Ripcord Bot...');
 
 // Set up terminal interface when bot is ready
-client.once(Events.ClientReady, (ready) => {
-  logger.info(`Logged in as ${ready.user.tag}`);
+client.once(Events.ClientReady, async (ready) => {
+  await logger.info(`Logged in as ${ready.user.tag}`);
   setupTerminal(commands.handleTerminalInput, logger);
   setupSigintHandler();
 });
@@ -38,7 +40,7 @@ client.on(Events.MessageCreate, async (message) => {
   // Ignore bot messages
   if (message.author.bot) return;
 
-  logger.info(`Message from ${message.author.tag} in ${message.guild?.name || 'DM'}: ${message.content}`);
+  await logger.info(`Message from ${message.author.tag} in ${message.guild?.name || 'DM'}: ${message.content}`);
 
   // Check message for filtered content first
   const filtered = config.enableFiltering && (await filter.checkAndModerate(message, logger));
@@ -52,7 +54,7 @@ client.on(Events.MessageCreate, async (message) => {
 });
 
 // Connect to Discord
-client.login(token).catch((error) => {
-  logger.error(`Login failed: ${error.message || error}`);
+client.login(token).catch(async (error) => {
+  await logger.error(`Login failed: ${error.message || error}`);
   process.exit(1);
 });

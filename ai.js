@@ -1,39 +1,50 @@
 // AI integration module using Ollama for content analysis and user prompts
 // Handles all interactions with the local Ollama API server
 
-import { ollamaModel } from './config.js';
+import * as config from './config.js';
+
+
+let ollamaAvailable = true;
+
+// Health check for Ollama server
+export async function checkOllamaHealth(logger) {
+  try {
+    const res = await fetch('http://localhost:11434/api/tags', { method: 'GET' });
+    if (!res.ok) throw new Error('Ollama health check failed');
+    ollamaAvailable = true;
+    return true;
+  } catch (error) {
+    ollamaAvailable = false;
+    if (logger) await logger.error('Ollama server is not available. AI features are disabled.');
+    return false;
+  }
+}
 
 // Generic prompt function to send messages to Ollama and get a response
-// Parameters:
-//   messages - Array of message objects with 'role' (user/assistant) and 'content' fields
-//   logger - Logger instance for error logging
-//   model - Ollama model to use (default: configured ollamaModel from config.js)
-// Returns: Response text from AI model, or null if request fails
-async function prompt(messages, logger, model = ollamaModel) {
+// Returns: Response text from AI model, or null if request fails or Ollama is unavailable
+export async function prompt(messages, logger, model = config.ollamaModel) {
+  if (!ollamaAvailable) {
+    if (logger) await logger.error('AI features are disabled: Ollama server is not available.');
+    return null;
+  }
   try {
-    // Send the messages to Ollama's chat API endpoint
     const response = await fetch('http://localhost:11434/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: model,
         messages: messages,
-        stream: false, // Wait for complete response instead of streaming
+        stream: false,
       }),
     });
-
-    // Check if request was successful
     if (!response.ok) {
-      logger.error(`Ollama request failed: ${response.status}`);
+      await logger.error(`Ollama request failed: ${response.status}`);
       return null;
     }
-
-    // Extract the AI response text
     const data = await response.json();
     return data.message?.content?.trim() || null;
   } catch (error) {
-    // Log network or parsing errors
-    logger.error(`Ollama error: ${error.message || error}`);
+    await logger.error(`Ollama error: ${error.message || error}`);
     return null;
   }
 }
@@ -43,7 +54,7 @@ async function prompt(messages, logger, model = ollamaModel) {
 //   content - The message text to analyze
 //   logger - Logger instance for error logging
 // Returns: Boolean - true if message contains offensive language, false otherwise
-async function checkWithOllama(content, logger) {
+export async function checkWithOllama(content, logger) {
   // Create a moderation prompt for the AI
   const messages = [
     {
@@ -57,8 +68,3 @@ async function checkWithOllama(content, logger) {
   return result?.toLowerCase().includes('yes') || false;
 }
 
-// Export functions for use in other modules
-export {
-  prompt,
-  checkWithOllama,
-};

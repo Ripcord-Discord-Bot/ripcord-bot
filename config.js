@@ -1,16 +1,11 @@
-import { join } from 'path';
+import path from 'path';
 
-export const commandPrefix = '!';
-
-export const enableConsole = true;
-
-export const enableFileLogging = true;
-export const logsPath = join(import.meta.dirname, 'logs');
-
-export const enableFiltering = true;
-export const filteredWordsDir = join(import.meta.dirname, 'data');
-
-export const ollamaModel = 'mistral';
-
-export const enableTickets = true;
-export const ticketDirectoryPath = join(import.meta.dirname, 'tickets');
+export const commandPrefix = process.env.COMMAND_PREFIX || '!';
+export const enableConsole = process.env.ENABLE_CONSOLE === 'false' ? false : true;
+export const enableFileLogging = process.env.ENABLE_FILE_LOGGING === 'false' ? false : true;
+export const logsPath = process.env.LOGS_PATH || path.resolve(process.cwd(), 'logs');
+export const enableFiltering = process.env.ENABLE_FILTERING === 'false' ? false : true;
+export const filteredWordsDir = process.env.FILTERED_WORDS_DIR || path.resolve(process.cwd(), 'data');
+export const ollamaModel = process.env.OLLAMA_MODEL || 'mistral';
+export const enableTickets = process.env.ENABLE_TICKETS === 'false' ? false : true;
+export const ticketDirectoryPath = process.env.TICKET_DIRECTORY_PATH || path.resolve(process.cwd(), 'tickets');

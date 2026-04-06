@@ -2,12 +2,12 @@
 // Automatically creates ticket files for messages in the issues channel
 
 import path from 'path';
-import { enableTickets, ticketDirectoryPath } from './config.js';
+import * as config from './config.js';
 import { isFromChannel } from './authentication.js';
-import { checkDirExistsSync, createDirSync, createFileSync } from './io.js';
+import { checkDirExists, createDir, createFile } from './io.js';
 
 // Get the directory name of the current module
-const ticketsDir = ticketDirectoryPath;
+const ticketsDir = config.ticketDirectoryPath;
 
 // Check if message was sent in issues channel and create a ticket file
 // Parameters:
@@ -16,7 +16,7 @@ const ticketsDir = ticketDirectoryPath;
 // Returns: Boolean - true if ticket was created, false otherwise
 async function createTicket(message, logger) {
   // Check if tickets are enabled
-  if (!enableTickets) {
+  if (!config.enableTickets) {
     return false;
   }
 
@@ -27,9 +27,9 @@ async function createTicket(message, logger) {
 
   try {
     // Create tickets directory if it doesn't exist
-    if (!checkDirExistsSync(ticketsDir)) {
-      createDirSync(ticketsDir);
-      logger.info('Created tickets directory');
+    if (!(await checkDirExists(ticketsDir))) {
+      await createDir(ticketsDir);
+      await logger.info('Created tickets directory');
     }
 
     // Generate ticket filename with timestamp and message ID
@@ -70,12 +70,12 @@ async function createTicket(message, logger) {
     };
 
     // Write the ticket file as JSON
-    createFileSync(ticketPath, JSON.stringify(ticket, null, 2));
-    logger.info(`Created ticket: ${ticketFileName}`);
+    await createFile(ticketPath, JSON.stringify(ticket, null, 2));
+    await logger.info(`Created ticket: ${ticketFileName}`);
 
     return true;
   } catch (error) {
-    logger.error(`Failed to create ticket: ${error.message || error}`);
+    await logger.error(`Failed to create ticket: ${error.message || error}`);
     return false;
   }
 }

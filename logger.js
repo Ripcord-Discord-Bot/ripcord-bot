@@ -3,12 +3,17 @@ import fs from 'fs';
 import path from 'path';
 import * as config from './config.js';
 import { clearPrompt, restorePrompt, formatConsoleTag, consoleColors } from './terminal.js';
-import { createDirSync, appendToFileSync } from './io.js';
+import { createDir, appendToFile } from './io.js';
 
-// Set up log directory for file logging
+// Set up log directory for file logging (async)
 const logDirectory = path.resolve(config.logsPath);
 if (config.enableFileLogging) {
-  createDirSync(logDirectory);
+  // Fire and forget, but log error if creation fails
+  createDir(logDirectory).catch((err) => {
+    if (config.enableConsole) {
+      console.error('Failed to create log directory:', err);
+    }
+  });
 }
 
 // Get the path for today's log file (format: YYYY-MM-DD.log)
@@ -29,42 +34,49 @@ function formatTimestamp(date) {
   return `${day}-${month}-${year} ${hours}:${minutes}:${seconds}`;
 }
 
-// Append a log entry to the current day's log file
-function appendLog(tag, message) {
+// Append a log entry to the current day's log file (async)
+async function appendLog(tag, message) {
   if (!config.enableFileLogging) return;
   const timestamp = formatTimestamp(new Date());
   const line = `[${timestamp}] [${tag}] ${message}\n`;
-  appendToFileSync(getLogFilePath(), line);
+  try {
+    await appendToFile(getLogFilePath(), line);
+  } catch (err) {
+    if (config.enableConsole) {
+      console.error('Failed to write log file:', err);
+    }
+  }
 }
 
-// Logger object with methods for different log levels
+
+// Logger object with async methods for different log levels
 const logger = {
   // Log info level message (green) - to console and file
-  info: (message) => {
+  info: async (message) => {
     if (config.enableConsole) {
       clearPrompt();
       console.log(`${formatConsoleTag('INFO', consoleColors.green)} ${message}`);
       restorePrompt();
     }
-    appendLog('INFO', message);
+    await appendLog('INFO', message);
   },
   // Log warning level message (yellow) - to console and file
-  warn: (message) => {
+  warn: async (message) => {
     if (config.enableConsole) {
       clearPrompt();
       console.warn(`${formatConsoleTag('WARN', consoleColors.yellow)} ${message}`);
       restorePrompt();
     }
-    appendLog('WARN', message);
+    await appendLog('WARN', message);
   },
   // Log error level message (red) - to console and file
-  error: (message) => {
+  error: async (message) => {
     if (config.enableConsole) {
       clearPrompt();
       console.error(`${formatConsoleTag('ERROR', consoleColors.red)} ${message}`);
       restorePrompt();
     }
-    appendLog('ERROR', message);
+    await appendLog('ERROR', message);
   },
 };
 

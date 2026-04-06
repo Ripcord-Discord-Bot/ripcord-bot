@@ -78,7 +78,7 @@ function setupTerminal(handleInput, logger) {
   rl.on('line', async (line) => {
     const handled = await handleInput(line, logger);
     if (!handled) {
-      logger.warn(`Command not recognized in terminal input: ${line}`);
+      await logger.warn(`Command not recognized in terminal input: ${line}`);
     }
     rl.prompt();
   });

@@ -1,10 +1,10 @@
-// Import command prefix from config and filter functions
-import { commandPrefix } from './config.js';
+// Import config and filter functions
+import * as config from './config.js';
 import { addFilteredWord } from './filter.js';
 import { prompt } from './ai.js';
 import { shutdown, terminalOutput } from './terminal.js';
 import { isFromTerminal, hasPermission } from './authentication.js';
-const prefix = commandPrefix;
+const prefix = config.commandPrefix;
 
 function replyLongMessage(message, text) {
   if (text.length <= 1900) {
@@ -154,6 +154,9 @@ async function handleTerminalInput(input, logger) {
   const message = {
     content: trimmed,
     author: { tag: 'terminal' },
+    channel: {
+      sendTyping: async () => {},
+    },
     reply: async (response) => terminalOutput(response),
   };
 

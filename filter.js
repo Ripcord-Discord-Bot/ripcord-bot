@@ -1,14 +1,14 @@
 // Import filtering configuration and AI functions
-import { enableFiltering, filteredWordsDir } from './config.js';
+import * as config from './config.js';
 import { checkWithOllama } from './ai.js';
 import path from 'path';
 import { checkDirExistsSync, createDirSync, checkFileExistsSync, createFileSync, readFileSync } from './io.js';
 
-const filteredWordsFile = path.join(filteredWordsDir, 'filtered-words.json');
+const filteredWordsFile = path.join(config.filteredWordsDir, 'filtered-words.json');
 
 // Initialize filtered words from file
-if (!checkDirExistsSync(filteredWordsDir)) {
-  createDirSync(filteredWordsDir);
+if (!checkDirExistsSync(config.filteredWordsDir)) {
+  createDirSync(config.filteredWordsDir);
 }
 
 let filteredWords = [];
@@ -18,7 +18,7 @@ if (checkFileExistsSync(filteredWordsFile)) {
     filteredWords = JSON.parse(data);
   } catch (error) {
     console.error('Error loading filtered words:', error);
-    filteredWords = ['badword', 'spam', 'forbidden'];
+    filteredWords = [];
   }
 } else {
   filteredWords = [];
@@ -56,7 +56,7 @@ function containsFilteredWord(content) {
 // Check a message for filtered content and moderate if necessary
 async function checkAndModerate(message, logger) {
   // Skip if filtering is disabled
-  if (!enableFiltering) return false;
+  if (!config.enableFiltering) return false;
   // Skip if message is not in a guild (e.g., DM)
   if (!message.guild) return false;
 
