@@ -1,31 +1,23 @@
+// File system and path utilities for logging
 import fs from 'fs';
 import path from 'path';
-import readline from 'readline';
 import * as config from './config.js';
+import { clearPrompt, restorePrompt, formatConsoleTag, consoleColors } from './terminal.js';
+import { createDirSync, appendToFileSync } from './io.js';
 
+// Set up log directory for file logging
 const logDirectory = path.resolve(config.logsPath);
 if (config.enableFileLogging) {
-  fs.mkdirSync(logDirectory, { recursive: true });
+  createDirSync(logDirectory);
 }
 
-let promptInterface = null;
-
-function clearPrompt() {
-  if (!promptInterface || !config.enableConsole) return;
-  readline.clearLine(process.stdout, 0);
-  readline.cursorTo(process.stdout, 0);
-}
-
-function restorePrompt() {
-  if (!promptInterface || !config.enableConsole) return;
-  promptInterface.prompt(true);
-}
-
+// Get the path for today's log file (format: YYYY-MM-DD.log)
 function getLogFilePath() {
   const date = new Date().toISOString().slice(0, 10);
   return path.join(logDirectory, `${date}.log`);
 }
 
+// Format a date object into DD-MM-YYYY HH:MM:SS format
 function formatTimestamp(date) {
   const pad = (value) => String(value).padStart(2, '0');
   const year = date.getFullYear();
@@ -37,38 +29,17 @@ function formatTimestamp(date) {
   return `${day}-${month}-${year} ${hours}:${minutes}:${seconds}`;
 }
 
+// Append a log entry to the current day's log file
 function appendLog(tag, message) {
   if (!config.enableFileLogging) return;
   const timestamp = formatTimestamp(new Date());
   const line = `[${timestamp}] [${tag}] ${message}\n`;
-  fs.appendFileSync(getLogFilePath(), line, 'utf8');
+  appendToFileSync(getLogFilePath(), line);
 }
 
-const consoleColors = {
-  reset: '\x1b[0m',
-  green: '\x1b[32m',
-  yellow: '\x1b[33m',
-  red: '\x1b[31m',
-  cyan: '\x1b[36m',
-  purple: '\x1b[35m',
-};
-
-function formatConsoleTag(label, levelColor) {
-  return `${consoleColors.cyan}[${levelColor}${label}${consoleColors.cyan}]${consoleColors.reset}`;
-}
-
+// Logger object with methods for different log levels
 const logger = {
-  setPromptInterface: (rl) => {
-    if (config.enableConsole) {
-      promptInterface = rl;
-    }
-  },
-  terminalOutput: (message) => {
-    if (!config.enableConsole) return;
-    clearPrompt();
-    console.log(`${formatConsoleTag('TERMINAL', consoleColors.purple)} ${message}`);
-    restorePrompt();
-  },
+  // Log info level message (green) - to console and file
   info: (message) => {
     if (config.enableConsole) {
       clearPrompt();
@@ -77,6 +48,7 @@ const logger = {
     }
     appendLog('INFO', message);
   },
+  // Log warning level message (yellow) - to console and file
   warn: (message) => {
     if (config.enableConsole) {
       clearPrompt();
@@ -85,6 +57,7 @@ const logger = {
     }
     appendLog('WARN', message);
   },
+  // Log error level message (red) - to console and file
   error: (message) => {
     if (config.enableConsole) {
       clearPrompt();
@@ -95,4 +68,5 @@ const logger = {
   },
 };
 
+// Export logger as default export
 export default logger;

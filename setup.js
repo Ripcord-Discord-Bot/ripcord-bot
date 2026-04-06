@@ -1,12 +1,15 @@
+// Load environment variables from .env file
 import 'dotenv/config.js';
 import { Client, GatewayIntentBits, ChannelType, PermissionFlagsBits } from 'discord.js';
 
+// Verify bot token is available
 const token = process.env.DISCORD_TOKEN;
 if (!token) {
   console.error('Missing DISCORD_TOKEN in .env');
   process.exit(1);
 }
 
+// Define the channels to be created during server setup
 const CHANNELS = {
   welcome: 'welcome',
   chat: 'chat',
@@ -14,7 +17,9 @@ const CHANNELS = {
   moderators: 'moderators',
 };
 
+// Main setup function
 async function setupServer() {
+  // Create Discord client
   const client = new Client({
     intents: [
       GatewayIntentBits.Guilds,
@@ -23,8 +28,10 @@ async function setupServer() {
     ],
   });
 
+  // Execute setup when bot is ready
   client.on('clientReady', async () => {
     try {
+      // Get the first (and usually only) server the bot is in
       const guild = client.guilds.cache.first();
       if (!guild) {
         console.error('No guild found. Make sure the bot is in a server.');
@@ -33,7 +40,7 @@ async function setupServer() {
 
       console.log(`\nSetting up server: ${guild.name}`);
 
-      // Get or create moderator role
+      // Get or create the Moderator role
       let moderatorRole = guild.roles.cache.find((role) => role.name === 'Moderator');
       if (!moderatorRole) {
         moderatorRole = await guild.roles.create({
@@ -45,14 +52,16 @@ async function setupServer() {
         console.log('✓ Moderator role already exists');
       }
 
-      // Get @everyone role
+      // Get the @everyone role for permission configuration
       const everyoneRole = guild.roles.everyone;
 
-      // Setup channels
+      // Create or verify all required channels
       for (const [key, channelName] of Object.entries(CHANNELS)) {
+        // Check if channel already exists
         let channel = guild.channels.cache.find((ch) => ch.name === channelName && ch.type === ChannelType.GuildText);
 
         if (!channel) {
+          // Create channel if it doesn't exist
           channel = await guild.channels.create({
             name: channelName,
             type: ChannelType.GuildText,
@@ -63,9 +72,9 @@ async function setupServer() {
           console.log(`✓ #${channelName} channel already exists`);
         }
 
-        // Configure permissions
+        // Configure channel-specific permissions
         if (key === 'welcome') {
-          // Only moderators can send messages
+          // Welcome channel: everyone can view but only moderators can post
           await channel.permissionOverwrites.set([
             {
               id: everyoneRole.id,
@@ -78,7 +87,7 @@ async function setupServer() {
           ]);
           console.log(`✓ Set #${channelName} permissions (only moderators can post)`);
         } else if (key === 'moderators') {
-          // Only moderators can see and post
+          // Moderators channel: only moderators can view and post
           await channel.permissionOverwrites.set([
             {
               id: everyoneRole.id,
@@ -93,10 +102,13 @@ async function setupServer() {
         }
       }
 
-      // Post welcome message to welcome channel
+      // Post welcome and rules messages to the welcome channel
       const welcomeChannel = guild.channels.cache.find((ch) => ch.name === CHANNELS.welcome);
       if (welcomeChannel) {
+        // Fetch recent messages to check if setup messages already exist
         const existingMessages = await welcomeChannel.messages.fetch({ limit: 10 });
+
+        // Check for and post welcome message
         const hasWelcomeMessage = existingMessages.some((msg) => msg.author.id === client.user.id && msg.content.includes('Welcome'));
 
         if (!hasWelcomeMessage) {
@@ -106,6 +118,7 @@ async function setupServer() {
           console.log('✓ Welcome message already posted');
         }
 
+        // Check for and post server rules message
         const hasRulesMessage = existingMessages.some((msg) => msg.author.id === client.user.id && msg.content.includes('Server Rules'));
 
         if (!hasRulesMessage) {
@@ -131,7 +144,9 @@ async function setupServer() {
     }
   });
 
+  // Connect to Discord and execute setup
   client.login(token);
 }
 
+// Run the setup script
 setupServer();

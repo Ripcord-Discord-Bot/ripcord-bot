@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Minimal Discord bot environment",
+  "description": "Discord bot environment",
   "main": "index.js",
   "scripts": {
     "dev": "node index.js",

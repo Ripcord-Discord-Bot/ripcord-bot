@@ -1,13 +1,17 @@
+// Load environment variables from .env file
 import 'dotenv/config.js';
 import { Client, GatewayIntentBits, ChannelType } from 'discord.js';
 
+// Verify bot token is available
 const token = process.env.DISCORD_TOKEN;
 if (!token) {
   console.error('Missing DISCORD_TOKEN in .env');
   process.exit(1);
 }
 
+// Main cleanup function
 async function cleanupServer() {
+  // Create Discord client
   const client = new Client({
     intents: [
       GatewayIntentBits.Guilds,
@@ -16,8 +20,10 @@ async function cleanupServer() {
     ],
   });
 
+  // Execute cleanup when bot is ready
   client.on('clientReady', async () => {
     try {
+      // Get the first (and usually only) server the bot is in
       const guild = client.guilds.cache.first();
       if (!guild) {
         console.error('No guild found. Make sure the bot is in a server.');
@@ -32,6 +38,7 @@ async function cleanupServer() {
       // Delete all messages from all channels
       for (const [, channel] of textChannels) {
         try {
+          // Fetch and delete messages in batches of 100 until empty
           let fetched;
           while ((fetched = await channel.messages.fetch({ limit: 100 })).size > 0) {
             await Promise.all(fetched.map((msg) => msg.delete()));
@@ -42,7 +49,7 @@ async function cleanupServer() {
         }
       }
 
-      // Delete all text channels except welcome
+      // Delete all text channels except the welcome channel
       for (const [, channel] of textChannels) {
         if (channel.name !== 'welcome') {
           try {
@@ -73,7 +80,9 @@ async function cleanupServer() {
     }
   });
 
+  // Connect to Discord and execute cleanup
   client.login(token);
 }
 
+// Run the cleanup script
 cleanupServer();
