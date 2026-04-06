@@ -40,7 +40,6 @@ const commands = {
   addfilter: {
     description: 'Adds a word to the filter list.',
     permission: 'ModerateMembers',
-    terminalAlwaysAllowed: true,
     usage: `${prefix}addfilter <word>`,
     execute: async ({ message, command, logger }) => {
       if (!command.args.length) {

@@ -49,6 +49,23 @@ export async function prompt(messages, logger, model = config.ollamaModel) {
   }
 }
 
+// Suggest a moderation course of action for a ticket
+// Parameters:
+//   ticket - Ticket object with author, message, and metadata fields
+//   logger - Logger instance for error logging
+// Returns: Suggestion string from AI, or null if unavailable
+export async function suggestTicketAction(ticket, logger) {
+  const { author, message, server } = ticket;
+  const messages = [
+    {
+      role: 'user',
+      content: `You are a Discord server moderation assistant. A user has submitted a ticket in the issues channel. Based on the ticket details below, suggest a concise course of action for the moderators to take. Be practical and specific.\n\nServer: ${server?.name ?? 'Unknown'}\nUser: ${author.tag} (ID: ${author.id})\nMessage: "${message.content}"\nSubmitted: ${message.createdAt}\n\nSuggested moderator action:`,
+    },
+  ];
+
+  return await prompt(messages, logger);
+}
+
 // Check if message content contains offensive language using AI moderation
 // Parameters:
 //   content - The message text to analyze
