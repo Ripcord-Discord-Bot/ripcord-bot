@@ -5,6 +5,7 @@ import { prompt } from './ai.js';
 import { shutdown, terminalOutput } from './terminal.js';
 import { isFromTerminal, hasPermission } from './authentication.js';
 import { addBannedUser, removeBannedUser } from './bannedlist.js';
+import { getServerStats } from './serverstats.js';
 const prefix = config.commandPrefix;
 
 function replyLongMessage(message, text) {
@@ -78,17 +79,18 @@ const commands = {
     },
   },
   ban: {
-    description: 'Adds a user ID to the banned list.',
+    description: 'Adds one or more user IDs to the banned list.',
     permission: 'ModerateMembers',
-    usage: `${prefix}ban <userId>`,
+    usage: `${prefix}ban <userId> [userId2 ...]`,
     execute: async ({ message, command, logger }) => {
-      const userId = command.args[0];
-      if (!userId) {
-        await message.reply(`Usage: ${prefix}ban <userId>`);
+      if (!command.args.length) {
+        await message.reply(`Usage: ${prefix}ban <userId> [userId2 ...]`);
         return;
       }
-      await addBannedUser(userId, logger, message.guild);
-      await message.reply(`User \`${userId}\` has been added to the banned list.`);
+      const results = await Promise.all(
+        command.args.map((userId) => addBannedUser(userId, logger, message.guild).then(() => userId))
+      );
+      await message.reply(`Banned ${results.length} user(s): ${results.map((id) => `\`${id}\``).join(', ')}`);
     },
   },
   unban: {
@@ -107,6 +109,29 @@ const commands = {
       } else {
         await message.reply(`User \`${userId}\` is not on the banned list.`);
       }
+    },
+  },
+  stats: {
+    description: 'Displays server statistics.',
+    permission: 'ModerateMembers',
+    execute: async ({ message }) => {
+      const { messages, newUsers } = getServerStats();
+      await message.reply(`**Server Stats**\nMessages logged: ${messages}\nNew users joined: ${newUsers}`);
+    },
+  },
+  help: {
+    description: 'Lists all available commands.',
+    execute: async ({ message, isTerminal }) => {
+      const isMod = isTerminal || (message.member && message.member.permissions.has('ModerateMembers'));
+      const lines = ['**Available Commands**\n'];
+      for (const [name, cmd] of Object.entries(commands)) {
+        if (cmd.terminalOnly && !isTerminal) continue;
+        if (cmd.permission && !isMod) continue;
+        const usage = cmd.usage || `${prefix}${name}`;
+        const perm = cmd.terminalOnly ? ' *(terminal only)*' : cmd.permission ? ' *(moderators only)*' : '';
+        lines.push(`\`${usage}\` — ${cmd.description}${perm}`);
+      }
+      await replyLongMessage(message, lines.join('\n'));
     },
   },
   ask: {

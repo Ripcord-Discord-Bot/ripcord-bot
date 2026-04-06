@@ -68,6 +68,7 @@ function setupTerminal(handleInput, logger) {
     input: process.stdin,
     output: process.stdout,
     prompt: 'ripcord > ',
+    terminal: true,
   });
 
   // Store the readline interface for prompt management

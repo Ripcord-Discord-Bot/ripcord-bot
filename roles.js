@@ -2,6 +2,7 @@
 // Handles welcome messages, server rules, and Trusted role assignment
 
 import path from 'path';
+import fs from 'fs';
 import { Events } from 'discord.js';
 import * as config from './config.js';
 import { checkDirExists, createDir, checkFileExists, createFile } from './io.js';
@@ -17,7 +18,7 @@ async function loadRulesMessageId(logger) {
       await createDir(config.serverRulesIdPath);
     }
     if (await checkFileExists(rulesFilePath)) {
-      const raw = await import('fs').then((fs) => fs.promises.readFile(rulesFilePath, 'utf8'));
+      const raw = await fs.promises.readFile(rulesFilePath, 'utf8');
       const data = JSON.parse(raw);
       rulesMessageId = data.messageId ?? null;
       if (logger) await logger.info(`Loaded rules message ID: ${rulesMessageId}`);

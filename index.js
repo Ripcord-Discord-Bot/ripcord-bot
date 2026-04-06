@@ -4,12 +4,13 @@ import { Client, GatewayIntentBits, Events, Partials } from 'discord.js';
 import * as config from './config.js';
 import logger from './logger.js';
 import * as commands from './commands.js';
-import filter from './filter.js';
+import { checkAndModerate } from './filter.js';
 import { createTicket } from './ticket.js';
 import { setupTerminal, setupSigintHandler } from './terminal.js';
 import { loadServerStats, recordMessage, recordNewUser } from './serverstats.js';
 import { setupRoleEvents } from './roles.js';
 import { loadBannedList, isBanned } from './bannedlist.js';
+import { setupAudit } from './audit.js';
 
 // Verify bot token is available
 const token = process.env.DISCORD_TOKEN;
@@ -28,6 +29,8 @@ const client = new Client({
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessageReactions,
+    GatewayIntentBits.GuildModeration,
+    GatewayIntentBits.GuildVoiceStates,
   ],
   partials: [Partials.Message, Partials.Channel, Partials.Reaction],
 });
@@ -40,6 +43,7 @@ client.once(Events.ClientReady, async (ready) => {
   await loadServerStats(logger);
   await loadBannedList(logger);
   await setupRoleEvents(client, logger);
+  setupAudit(client, logger);
   setupTerminal(commands.handleTerminalInput, logger);
   setupSigintHandler();
 });
@@ -48,12 +52,10 @@ client.once(Events.ClientReady, async (ready) => {
 client.on(Events.MessageCreate, async (message) => {
   // Ignore bot messages
   if (message.author.bot) return;
-
-  await logger.info(`Message from ${message.author.tag} in ${message.guild?.name || 'DM'}: ${message.content}`);
   await recordMessage(logger);
 
   // Check message for filtered content first
-  const filtered = config.enableFiltering && (await filter.checkAndModerate(message, logger));
+  const filtered = config.enableFiltering && (await checkAndModerate(message, logger));
   if (filtered) return;
 
   // Create ticket if message is in issues channel
@@ -85,19 +87,6 @@ client.on(Events.GuildMemberAdd, async (member) => {
     await logger.info(`Sent onboarding DM to ${member.user.tag}`);
   } catch {
     await logger.warn(`Could not DM onboarding message to ${member.user.tag}`);
-  }
-});
-
-// Log role changes on members
-client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
-  const addedRoles = newMember.roles.cache.filter((r) => !oldMember.roles.cache.has(r.id));
-  const removedRoles = oldMember.roles.cache.filter((r) => !newMember.roles.cache.has(r.id));
-
-  for (const role of addedRoles.values()) {
-    await logger.info(`Role "${role.name}" awarded to ${newMember.user.tag}`);
-  }
-  for (const role of removedRoles.values()) {
-    await logger.info(`Role "${role.name}" removed from ${newMember.user.tag}`);
   }
 });
 

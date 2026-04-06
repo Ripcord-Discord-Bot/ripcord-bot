@@ -115,10 +115,4 @@ async function checkAndModerate(message, logger) {
   return true;
 }
 
-export default {
-  checkAndModerate,
-  addFilteredWord,
-  getFilteredWords,
-};
-
-export { addFilteredWord, removeFilteredWord, getFilteredWords };
+export { checkAndModerate, addFilteredWord, removeFilteredWord, getFilteredWords };

@@ -37,7 +37,6 @@ async function createTicket(message, logger) {
     const ticket = {
       author: {
         username: message.author.username,
-        discriminator: message.author.discriminator,
         id: message.author.id,
         tag,
       },
