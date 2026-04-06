@@ -59,7 +59,7 @@ export async function suggestTicketAction(ticket, logger) {
   const messages = [
     {
       role: 'user',
-      content: `You are a Discord server moderation assistant. A user has submitted a ticket in the issues channel. Based on the ticket details below, suggest a concise course of action for the moderators to take. Be practical and specific.\n\nServer: ${server?.name ?? 'Unknown'}\nUser: ${author.tag} (ID: ${author.id})\nMessage: "${message.content}"\nSubmitted: ${message.createdAt}\n\nSuggested moderator action:`,
+      content: `You are a Discord server moderation assistant. A user has submitted a ticket in the issues channel. Based on the ticket details below, suggest a concise course of action for the moderators to take. Be practical and specific.\n\nServer: ${server?.name ?? 'Unknown'}\nUser: ${author.tag} (ID: ${author.id})\nMessage: "${message.content}"\nSubmitted: ${message.createdAt}`,
     },
   ];
 
@@ -76,7 +76,7 @@ export async function checkWithOllama(content, logger) {
   const messages = [
     {
       role: 'user',
-      content: `Determine if this message contains bad, foul, profane, or offensive language. Respond with only "yes" or "no".\n\nMessage: "${content}"\n\nContains bad language:`,
+      content: `Determine if this message contains bad, foul, profane, or offensive language. Respond with only "yes" or "no".\n\nMessage: "${content}"`,
     },
   ];
 

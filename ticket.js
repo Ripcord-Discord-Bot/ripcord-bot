@@ -17,7 +17,7 @@ const ticketsDir = config.ticketDirectoryPath;
 // Returns: Boolean - true if ticket was created, false otherwise
 async function createTicket(message, logger) {
   if (!config.enableTickets) return false;
-  if (!isFromChannel(message, 'issues')) return false;
+  if (!isFromChannel(message, config.ticketChannel)) return false;
 
   try {
     if (!(await checkDirExists(ticketsDir))) {
@@ -28,7 +28,10 @@ async function createTicket(message, logger) {
     const now = new Date().toISOString();
     const tag = `${message.author.username}#${message.author.discriminator}`;
     const createdAt = message.createdAt?.toISOString() ?? now;
-    const ticketFileName = `ticket-${message.author.username}-${now.slice(0, 19).replace(/:/g, '-')}-${message.id}.json`;
+    const date = now.slice(0, 10);
+    const time = now.slice(11, 19).replace(/:/g, '-');
+    const shortId = message.id.slice(-4);
+    const ticketFileName = `${date}_${time}_${message.author.username}_${shortId}.json`;
     const ticketPath = path.join(ticketsDir, ticketFileName);
 
     const ticket = {

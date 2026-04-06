@@ -1,10 +1,11 @@
 // Import filtering configuration and AI functions
 import * as config from './config.js';
 import { checkWithOllama } from './ai.js';
+import { hasRole } from './authentication.js';
 import path from 'path';
 import { checkDirExistsSync, createDirSync, checkFileExistsSync, createFileSync, readFileSync } from './io.js';
 
-const filteredWordsFile = path.join(config.filteredWordsDir, 'filtered-words.json');
+const filteredWordsFile = path.join(config.filteredWordsDir, config.filteredWordsFile);
 
 // Initialize filtered words from file
 if (!checkDirExistsSync(config.filteredWordsDir)) {
@@ -42,6 +43,20 @@ function addFilteredWord(word) {
   return false;
 }
 
+// Remove a word from the filter list if it exists
+function removeFilteredWord(word) {
+  const normalized = word.toLowerCase().trim();
+  const index = filteredWords.indexOf(normalized);
+  if (index === -1) return false;
+  filteredWords.splice(index, 1);
+  try {
+    createFileSync(filteredWordsFile, JSON.stringify(filteredWords, null, 2));
+  } catch (error) {
+    console.error('Error saving filtered words:', error);
+  }
+  return true;
+}
+
 // Get a copy of the current filtered words list
 function getFilteredWords() {
   return [...filteredWords];
@@ -59,6 +74,8 @@ async function checkAndModerate(message, logger) {
   if (!config.enableFiltering) return false;
   // Skip if message is not in a guild (e.g., DM)
   if (!message.guild) return false;
+  // Skip if sender is a moderator
+  if (hasRole(message, config.moderatorRole)) return false;
 
   // Check message against filtered words and AI analysis
   const hasFilteredWords = containsFilteredWord(message.content);
@@ -104,4 +121,4 @@ export default {
   getFilteredWords,
 };
 
-export { addFilteredWord, getFilteredWords };
+export { addFilteredWord, removeFilteredWord, getFilteredWords };

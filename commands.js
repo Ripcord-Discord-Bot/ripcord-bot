@@ -1,9 +1,10 @@
 // Import config and filter functions
 import * as config from './config.js';
-import { addFilteredWord } from './filter.js';
+import { addFilteredWord, removeFilteredWord } from './filter.js';
 import { prompt } from './ai.js';
 import { shutdown, terminalOutput } from './terminal.js';
 import { isFromTerminal, hasPermission } from './authentication.js';
+import { addBannedUser, removeBannedUser } from './bannedlist.js';
 const prefix = config.commandPrefix;
 
 function replyLongMessage(message, text) {
@@ -54,6 +55,57 @@ const commands = {
         await message.reply(`Added "${word}" to filtered words.`);
       } else {
         await message.reply(`"${word}" is already in the filtered words list.`);
+      }
+    },
+  },
+  removefilter: {
+    description: 'Removes a word from the filter list.',
+    permission: 'ModerateMembers',
+    usage: `${prefix}removefilter <word>`,
+    execute: async ({ message, command, logger }) => {
+      if (!command.args.length) {
+        await message.reply(`Usage: ${prefix}removefilter <word>`);
+        return;
+      }
+      const word = command.args.join(' ');
+      const removed = removeFilteredWord(word);
+      if (removed) {
+        logger.info(`Removed filtered word "${word}" by ${message.author.tag}`);
+        await message.reply(`Removed "${word}" from filtered words.`);
+      } else {
+        await message.reply(`"${word}" is not in the filtered words list.`);
+      }
+    },
+  },
+  ban: {
+    description: 'Adds a user ID to the banned list.',
+    permission: 'ModerateMembers',
+    usage: `${prefix}ban <userId>`,
+    execute: async ({ message, command, logger }) => {
+      const userId = command.args[0];
+      if (!userId) {
+        await message.reply(`Usage: ${prefix}ban <userId>`);
+        return;
+      }
+      await addBannedUser(userId, logger, message.guild);
+      await message.reply(`User \`${userId}\` has been added to the banned list.`);
+    },
+  },
+  unban: {
+    description: 'Removes a user ID from the banned list.',
+    permission: 'ModerateMembers',
+    usage: `${prefix}unban <userId>`,
+    execute: async ({ message, command, logger }) => {
+      const userId = command.args[0];
+      if (!userId) {
+        await message.reply(`Usage: ${prefix}unban <userId>`);
+        return;
+      }
+      const removed = await removeBannedUser(userId, logger);
+      if (removed) {
+        await message.reply(`User \`${userId}\` has been removed from the banned list.`);
+      } else {
+        await message.reply(`User \`${userId}\` is not on the banned list.`);
       }
     },
   },
