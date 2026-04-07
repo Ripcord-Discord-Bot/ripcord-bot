@@ -1,12 +1,10 @@
 // File system and path utilities for logging
-import fs from 'fs';
-import path from 'path';
 import * as config from './config.js';
 import { clearPrompt, restorePrompt, formatConsoleTag, consoleColors } from './terminal.js';
-import { createDir, appendToFile } from './io.js';
+import { createDir, appendToFile, resolvePath, joinPath } from './io.js';
 
 // Set up log directory for file logging (async)
-const logDirectory = path.resolve(config.logsPath);
+const logDirectory = resolvePath(config.logsPath);
 if (config.enableFileLogging) {
   // Fire and forget, but log error if creation fails
   createDir(logDirectory).catch((err) => {
@@ -19,7 +17,7 @@ if (config.enableFileLogging) {
 // Get the path for today's log file (format: YYYY-MM-DD.log)
 function getLogFilePath() {
   const date = new Date().toISOString().slice(0, 10);
-  return path.join(logDirectory, `${date}.log`);
+  return joinPath(logDirectory, `${date}.log`);
 }
 
 // Format a date object into DD-MM-YYYY HH:MM:SS format

@@ -1,25 +1,20 @@
 // Role management and onboarding via reaction-based role assignment
 // Handles welcome messages, server rules, and Trusted role assignment
 
-import path from 'path';
-import fs from 'fs';
 import { Events } from 'discord.js';
 import * as config from './config.js';
-import { checkDirExists, createDir, checkFileExists, createFile } from './io.js';
+import { ensureDir, loadJson, writeJson, joinPath } from './io.js';
 
 const THUMBSUP = '👍';
-const rulesFilePath = path.join(config.serverRulesIdPath, config.serverRulesIdFile);
+const rulesFilePath = joinPath(config.serverRulesIdPath, config.serverRulesIdFile);
 
 let rulesMessageId = null;
 
 async function loadRulesMessageId(logger) {
   try {
-    if (!(await checkDirExists(config.serverRulesIdPath))) {
-      await createDir(config.serverRulesIdPath);
-    }
-    if (await checkFileExists(rulesFilePath)) {
-      const raw = await fs.promises.readFile(rulesFilePath, 'utf8');
-      const data = JSON.parse(raw);
+    await ensureDir(config.serverRulesIdPath);
+    const data = await loadJson(rulesFilePath, null);
+    if (data) {
       rulesMessageId = data.messageId ?? null;
       if (logger) await logger.info(`Loaded rules message ID: ${rulesMessageId}`);
     }
@@ -30,7 +25,7 @@ async function loadRulesMessageId(logger) {
 
 async function saveRulesMessageId(id, logger) {
   try {
-    await createFile(rulesFilePath, JSON.stringify({ messageId: id }, null, 2));
+    await writeJson(rulesFilePath, { messageId: id });
     rulesMessageId = id;
   } catch (error) {
     if (logger) await logger.error(`Failed to save rules message ID: ${error.message || error}`);

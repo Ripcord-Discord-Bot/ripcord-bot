@@ -1,10 +1,9 @@
 // Ticket system for handling messages posted in the issues channel
 // Automatically creates ticket files for messages in the issues channel
 
-import path from 'path';
+import { ensureDir, writeJson, joinPath } from './io.js';
 import * as config from './config.js';
 import { isFromChannel } from './authentication.js';
-import { checkDirExists, createDir, createFile } from './io.js';
 import { suggestTicketAction } from './ai.js';
 
 // Get the directory name of the current module
@@ -20,10 +19,7 @@ async function createTicket(message, logger) {
   if (!isFromChannel(message, config.ticketChannel)) return false;
 
   try {
-    if (!(await checkDirExists(ticketsDir))) {
-      await createDir(ticketsDir);
-      await logger.info('Created tickets directory');
-    }
+    await ensureDir(ticketsDir);
 
     const now = new Date().toISOString();
     const tag = `${message.author.username}#${message.author.discriminator}`;
@@ -32,7 +28,7 @@ async function createTicket(message, logger) {
     const time = now.slice(11, 19).replace(/:/g, '-');
     const shortId = message.id.slice(-4);
     const ticketFileName = `${date}_${time}_${message.author.username}_${shortId}.json`;
-    const ticketPath = path.join(ticketsDir, ticketFileName);
+    const ticketPath = joinPath(ticketsDir, ticketFileName);
 
     const ticket = {
       author: {
@@ -67,7 +63,7 @@ async function createTicket(message, logger) {
 
     ticket.moderatorSuggestion = (await suggestTicketAction(ticket, logger)) ?? null;
 
-    await createFile(ticketPath, JSON.stringify(ticket, null, 2));
+    await writeJson(ticketPath, ticket);
     await logger.info(`Created ticket: ${ticketFileName}`);
     return true;
   } catch (error) {

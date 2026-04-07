@@ -1,131 +1,70 @@
 // File system utility functions for common I/O operations
-// Provides async wrappers around Node.js fs operations
 
-import fs from 'fs';
-import path from 'path';
+import { promises as fsp } from 'fs';
+import { join as joinPath, resolve as resolvePath, sep } from 'path';
 
-// Check if a directory exists
-// Parameters:
-//   dirPath - Absolute path to the directory
-// Returns: Promise<boolean> - true if directory exists, false otherwise
+const cwd = resolvePath(process.cwd());
+
+function validatePath(inputPath) {
+  const resolved = resolvePath(inputPath);
+  if (resolved !== cwd && !resolved.startsWith(cwd + sep)) {
+    throw new Error(`Path traversal detected: "${inputPath}"`);
+  }
+}
+
 async function checkDirExists(dirPath) {
+  validatePath(dirPath);
   try {
-    const stats = await fs.promises.stat(dirPath);
-    return stats.isDirectory();
-  } catch (error) {
+    return (await fsp.stat(dirPath)).isDirectory();
+  } catch {
     return false;
   }
 }
 
-// Create a directory (recursively if needed)
-// Parameters:
-//   dirPath - Absolute path to the directory to create
-// Returns: Promise<void>
 async function createDir(dirPath) {
-  await fs.promises.mkdir(dirPath, { recursive: true });
+  validatePath(dirPath);
+  await fsp.mkdir(dirPath, { recursive: true });
 }
 
-// Check if a file exists
-// Parameters:
-//   filePath - Absolute path to the file
-// Returns: Promise<boolean> - true if file exists, false otherwise
 async function checkFileExists(filePath) {
+  validatePath(filePath);
   try {
-    const stats = await fs.promises.stat(filePath);
-    return stats.isFile();
-  } catch (error) {
+    return (await fsp.stat(filePath)).isFile();
+  } catch {
     return false;
   }
 }
 
-// Create a new file with content (overwrites if exists)
-// Parameters:
-//   filePath - Absolute path to the file
-//   content - Content to write to the file
-// Returns: Promise<void>
 async function createFile(filePath, content) {
-  await fs.promises.writeFile(filePath, content, 'utf8');
+  validatePath(filePath);
+  await fsp.writeFile(filePath, content, 'utf8');
 }
 
-// Append content to an existing file (creates if doesn't exist)
-// Parameters:
-//   filePath - Absolute path to the file
-//   content - Content to append to the file
-// Returns: Promise<void>
 async function appendToFile(filePath, content) {
-  await fs.promises.appendFile(filePath, content, 'utf8');
+  validatePath(filePath);
+  await fsp.appendFile(filePath, content, 'utf8');
 }
 
-// Synchronous versions for compatibility
-
-// Check if a directory exists (sync)
-// Parameters:
-//   dirPath - Absolute path to the directory
-// Returns: boolean - true if directory exists, false otherwise
-function checkDirExistsSync(dirPath) {
-  try {
-    return fs.statSync(dirPath).isDirectory();
-  } catch (error) {
-    return false;
-  }
+async function readFile(filePath) {
+  validatePath(filePath);
+  return fsp.readFile(filePath, 'utf8');
 }
 
-// Create a directory (recursively if needed, sync)
-// Parameters:
-//   dirPath - Absolute path to the directory to create
-// Returns: void
-function createDirSync(dirPath) {
-  fs.mkdirSync(dirPath, { recursive: true });
+async function ensureDir(dirPath) {
+  if (!await checkDirExists(dirPath)) await createDir(dirPath);
 }
 
-// Check if a file exists (sync)
-// Parameters:
-//   filePath - Absolute path to the file
-// Returns: boolean - true if file exists, false otherwise
-function checkFileExistsSync(filePath) {
-  try {
-    return fs.statSync(filePath).isFile();
-  } catch (error) {
-    return false;
-  }
+async function readJson(filePath) {
+  return JSON.parse(await readFile(filePath));
 }
 
-// Create a new file with content (overwrites if exists, sync)
-// Parameters:
-//   filePath - Absolute path to the file
-//   content - Content to write to the file
-// Returns: void
-function createFileSync(filePath, content) {
-  fs.writeFileSync(filePath, content, 'utf8');
+async function writeJson(filePath, data) {
+  await createFile(filePath, JSON.stringify(data, null, 2));
 }
 
-// Append content to an existing file (creates if doesn't exist, sync)
-// Parameters:
-//   filePath - Absolute path to the file
-//   content - Content to append to the file
-// Returns: void
-function appendToFileSync(filePath, content) {
-  fs.appendFileSync(filePath, content, 'utf8');
+async function loadJson(filePath, defaultValue) {
+  if (!await checkFileExists(filePath)) return defaultValue;
+  return JSON.parse(await readFile(filePath));
 }
 
-// Read content from a file (sync)
-// Parameters:
-//   filePath - Absolute path to the file
-// Returns: string - content of the file
-function readFileSync(filePath) {
-  return fs.readFileSync(filePath, 'utf8');
-}
-
-export {
-  checkDirExists,
-  createDir,
-  checkFileExists,
-  createFile,
-  appendToFile,
-  checkDirExistsSync,
-  createDirSync,
-  checkFileExistsSync,
-  createFileSync,
-  appendToFileSync,
-  readFileSync,
-};
+export { checkDirExists, createDir, checkFileExists, createFile, appendToFile, readFile, ensureDir, readJson, writeJson, loadJson, joinPath, resolvePath };

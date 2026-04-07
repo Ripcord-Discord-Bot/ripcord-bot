@@ -2,39 +2,26 @@
 import * as config from './config.js';
 import { checkWithOllama } from './ai.js';
 import { hasRole } from './authentication.js';
-import path from 'path';
-import { checkDirExistsSync, createDirSync, checkFileExistsSync, createFileSync, readFileSync } from './io.js';
+import { ensureDir, loadJson, writeJson, joinPath } from './io.js';
 
-const filteredWordsFile = path.join(config.filteredWordsDir, config.filteredWordsFile);
-
-// Initialize filtered words from file
-if (!checkDirExistsSync(config.filteredWordsDir)) {
-  createDirSync(config.filteredWordsDir);
-}
+const filteredWordsFile = joinPath(config.filteredWordsDir, config.filteredWordsFile);
 
 let filteredWords = [];
-if (checkFileExistsSync(filteredWordsFile)) {
-  try {
-    const data = readFileSync(filteredWordsFile);
-    filteredWords = JSON.parse(data);
-  } catch (error) {
-    console.error('Error loading filtered words:', error);
-    filteredWords = [];
-  }
-} else {
-  filteredWords = [];
-  createFileSync(filteredWordsFile, JSON.stringify(filteredWords, null, 2));
+
+async function initFilter() {
+  await ensureDir(config.filteredWordsDir);
+  filteredWords = await loadJson(filteredWordsFile, []);
 }
 
 // Add a word to the filter list if it's not already present
-function addFilteredWord(word) {
+async function addFilteredWord(word) {
   const normalized = word.toLowerCase().trim();
   // Only add if not empty and not already in the list
   if (normalized && !filteredWords.includes(normalized)) {
     filteredWords.push(normalized);
     // Save to file
     try {
-      createFileSync(filteredWordsFile, JSON.stringify(filteredWords, null, 2));
+      await writeJson(filteredWordsFile, filteredWords);
     } catch (error) {
       console.error('Error saving filtered words:', error);
     }
@@ -44,13 +31,13 @@ function addFilteredWord(word) {
 }
 
 // Remove a word from the filter list if it exists
-function removeFilteredWord(word) {
+async function removeFilteredWord(word) {
   const normalized = word.toLowerCase().trim();
   const index = filteredWords.indexOf(normalized);
   if (index === -1) return false;
   filteredWords.splice(index, 1);
   try {
-    createFileSync(filteredWordsFile, JSON.stringify(filteredWords, null, 2));
+    await writeJson(filteredWordsFile, filteredWords);
   } catch (error) {
     console.error('Error saving filtered words:', error);
   }
@@ -68,6 +55,40 @@ function containsFilteredWord(content) {
   return filteredWords.some((word) => text.includes(word));
 }
 
+// Delete a message and send a warning DM to the author
+async function deleteAndWarn(message, reason, logger) {
+  if (message.deletable) {
+    try {
+      await message.delete();
+      await logger.warn(`Deleted message from ${message.author.tag} (${reason})`);
+    } catch (error) {
+      await logger.error(`Failed to delete message: ${error.message || error}`);
+    }
+  } else {
+    await logger.warn(`Message not deleted from ${message.author.tag} (${reason}): ${message.id}`);
+  }
+
+  try {
+    await message.author.send(
+      'Your message was removed because it contained restricted content. Please follow the server rules.'
+    );
+    await logger.info(`Sent warning DM to ${message.author.tag}`);
+  } catch (error) {
+    await logger.error(`Unable to warn user ${message.author.tag}: ${error.message || error}`);
+  }
+}
+
+// Run AI check in the background without blocking the message pipeline
+function moderateWithAI(message, logger) {
+  checkWithOllama(message.content, logger)
+    .then(async (flagged) => {
+      if (flagged) await deleteAndWarn(message, 'AI detected', logger);
+    })
+    .catch(async (error) => {
+      await logger.error(`Background AI moderation error: ${error.message || error}`);
+    });
+}
+
 // Check a message for filtered content and moderate if necessary
 async function checkAndModerate(message, logger) {
   // Skip if filtering is disabled
@@ -77,42 +98,15 @@ async function checkAndModerate(message, logger) {
   // Skip if sender is a moderator
   if (hasRole(message, config.moderatorRole)) return false;
 
-  // Check message against filtered words and AI analysis
-  const hasFilteredWords = containsFilteredWord(message.content);
-  const hasOffensiveLanguage = await checkWithOllama(message.content, logger);
-
-  // If message is clean, allow it through
-  if (!hasFilteredWords && !hasOffensiveLanguage) return false;
-
-  // Build reason string for logging
-  const reasons = [];
-  if (hasFilteredWords) reasons.push('filtered');
-  if (hasOffensiveLanguage) reasons.push('AI detected');
-  const reason = reasons.join(' and ');
-
-  // Delete the message if possible
-  if (message.deletable) {
-    try {
-      await message.delete();
-      logger.warn(`Deleted message from ${message.author.tag} (${reason})`);
-    } catch (error) {
-      logger.error(`Failed to delete message: ${error.message || error}`);
-    }
-  } else {
-    logger.warn(`Message not deleted from ${message.author.tag} (${reason}): ${message.id}`);
+  // Word list check is instant — act immediately if matched
+  if (containsFilteredWord(message.content)) {
+    await deleteAndWarn(message, 'filtered', logger);
+    return true;
   }
 
-  // Send warning DM to user
-  try {
-    await message.author.send(
-      'Your message was removed because it contained restricted words. Please follow the server rules.'
-    );
-    logger.info(`Sent warning DM to ${message.author.tag}`);
-  } catch (error) {
-    logger.error(`Unable to warn user ${message.author.tag}: ${error.message || error}`);
-  }
-
-  return true;
+  // AI check is slow — run without blocking the message pipeline
+  moderateWithAI(message, logger);
+  return false;
 }
 
-export { checkAndModerate, addFilteredWord, removeFilteredWord, getFilteredWords };
+export { initFilter, checkAndModerate, addFilteredWord, removeFilteredWord, getFilteredWords };

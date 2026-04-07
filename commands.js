@@ -1,11 +1,10 @@
-// Import config and filter functions
-import * as config from './config.js';
-import { addFilteredWord, removeFilteredWord } from './filter.js';
 import { prompt } from './ai.js';
-import { shutdown, terminalOutput } from './terminal.js';
 import { isFromTerminal, hasPermission } from './authentication.js';
 import { addBannedUser, removeBannedUser } from './bannedlist.js';
+import * as config from './config.js';
+import { addFilteredWord, removeFilteredWord } from './filter.js';
 import { getServerStats } from './serverstats.js';
+import { shutdown, terminalOutput } from './terminal.js';
 const prefix = config.commandPrefix;
 
 function replyLongMessage(message, text) {
@@ -156,10 +155,10 @@ const commands = {
         }
 
         await replyLongMessage(message, response);
-        logger.info(`AI response sent to ${message.author.tag}`);
+        await logger.info(`AI response sent to ${message.author.tag}`);
       } catch (error) {
         await message.reply('An error occurred while processing your question.');
-        logger.error(`Error in ask command: ${error.message || error}`);
+        await logger.error(`Error in ask command: ${error.message || error}`);
       }
     },
   },
@@ -192,29 +191,29 @@ async function handleCommand(message, logger, allowNoPrefix = false) {
   if (!command) return false;
 
   const isTerminal = isFromTerminal(message);
-  logger.info(`Command received: ${command.name} from ${message.author.tag}`);
+  await logger.info(`Command received: ${command.name} from ${message.author.tag}`);
 
   const commandDef = commands[command.name];
   if (!commandDef) {
-    logger.error(`Unknown command: ${command.name} from ${message.author.tag}`);
+    await logger.error(`Unknown command: ${command.name} from ${message.author.tag}`);
     await message.reply(`Unknown command: ${command.name}`);
     return true;
   }
 
   if (commandDef.terminalOnly && !isTerminal) {
-    logger.warn(`Attempted terminal-only command from non-terminal source from ${message.author.tag}: ${command.name}`);
+    await logger.warn(`Attempted terminal-only command from non-terminal source from ${message.author.tag}: ${command.name}`);
     return true;
   }
 
   if (commandDef.permission && !isTerminal && !hasPermission(message, commandDef.permission)) {
-    logger.warn(`Attempted unauthorized command from ${message.author.tag}: ${command.name}`);
+    await logger.warn(`Attempted unauthorized command from ${message.author.tag}: ${command.name}`);
     return true;
   }
 
   try {
     await commandDef.execute({ message, command, logger, isTerminal });
   } catch (error) {
-    logger.error(`Error executing command ${command.name}: ${error.message || error}`);
+    await logger.error(`Error executing command ${command.name}: ${error.message || error}`);
     await message.reply('An error occurred while executing the command.');
   }
 

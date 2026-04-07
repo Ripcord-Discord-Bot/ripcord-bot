@@ -1,24 +1,20 @@
-// Load environment variables from .env file
-import 'dotenv/config.js';
 import { Client, GatewayIntentBits, Events, Partials } from 'discord.js';
-import * as config from './config.js';
-import logger from './logger.js';
-import * as commands from './commands.js';
-import { checkAndModerate } from './filter.js';
-import { createTicket } from './ticket.js';
-import { setupTerminal, setupSigintHandler } from './terminal.js';
-import { loadServerStats, recordMessage, recordNewUser } from './serverstats.js';
-import { setupRoleEvents } from './roles.js';
-import { loadBannedList, isBanned } from './bannedlist.js';
+
 import { setupAudit } from './audit.js';
+import { loadBannedList, isBanned } from './bannedlist.js';
+import * as commands from './commands.js';
+import * as config from './config.js';
+import { checkAndModerate, initFilter } from './filter.js';
+import logger from './logger.js';
+import { setupRoleEvents } from './roles.js';
+import { loadServerStats, recordMessage, recordNewUser } from './serverstats.js';
+import { setupTerminal, setupSigintHandler } from './terminal.js';
+import { createTicket } from './ticket.js';
 
 // Verify bot token is available
-const token = process.env.DISCORD_TOKEN;
-if (!token) {
-  (async () => {
-    await logger.error('Missing DISCORD_TOKEN in .env');
-    process.exit(1);
-  })();
+if (!config.token) {
+  await logger.error('Missing DISCORD_TOKEN in .env');
+  process.exit(1);
 }
 
 // Create Discord client with necessary intents
@@ -42,6 +38,7 @@ client.once(Events.ClientReady, async (ready) => {
   await logger.info(`Logged in as ${ready.user.tag}`);
   await loadServerStats(logger);
   await loadBannedList(logger);
+  await initFilter();
   await setupRoleEvents(client, logger);
   setupAudit(client, logger);
   setupTerminal(commands.handleTerminalInput, logger);
@@ -91,7 +88,7 @@ client.on(Events.GuildMemberAdd, async (member) => {
 });
 
 // Connect to Discord
-client.login(token).catch(async (error) => {
+client.login(config.token).catch(async (error) => {
   await logger.error(`Login failed: ${error.message || error}`);
   process.exit(1);
 });

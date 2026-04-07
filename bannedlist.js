@@ -1,26 +1,18 @@
 // Banned user list management
 // Loads and persists a list of banned Discord user IDs
 
-import path from 'path';
-import fs from 'fs';
 import * as config from './config.js';
-import { checkDirExists, createDir, checkFileExists, createFile } from './io.js';
+import { ensureDir, loadJson, writeJson, joinPath } from './io.js';
 
-const bannedListFilePath = path.join(config.bannedListPath, config.bannedListFile);
+const bannedListFilePath = joinPath(config.bannedListPath, config.bannedListFile);
 
 let bannedIds = new Set();
 
 // Load banned IDs from disk into memory
 export async function loadBannedList(logger) {
   try {
-    if (!(await checkDirExists(config.bannedListPath))) {
-      await createDir(config.bannedListPath);
-    }
-    if (!(await checkFileExists(bannedListFilePath))) {
-      await createFile(bannedListFilePath, JSON.stringify([], null, 2));
-    }
-    const raw = await fs.promises.readFile(bannedListFilePath, 'utf8');
-    bannedIds = new Set(JSON.parse(raw));
+    await ensureDir(config.bannedListPath);
+    bannedIds = new Set(await loadJson(bannedListFilePath, []));
     if (logger) await logger.info(`Loaded banned list: ${bannedIds.size} entries`);
   } catch (error) {
     if (logger) await logger.error(`Failed to load banned list: ${error.message || error}`);
@@ -31,7 +23,7 @@ export async function loadBannedList(logger) {
 export async function addBannedUser(userId, logger, guild) {
   bannedIds.add(userId);
   try {
-    await createFile(bannedListFilePath, JSON.stringify([...bannedIds], null, 2));
+    await writeJson(bannedListFilePath, [...bannedIds]);
     if (logger) await logger.info(`Added user ${userId} to banned list`);
   } catch (error) {
     if (logger) await logger.error(`Failed to save banned list: ${error.message || error}`);
@@ -55,7 +47,7 @@ export async function removeBannedUser(userId, logger) {
   if (!bannedIds.has(userId)) return false;
   bannedIds.delete(userId);
   try {
-    await createFile(bannedListFilePath, JSON.stringify([...bannedIds], null, 2));
+    await writeJson(bannedListFilePath, [...bannedIds]);
     if (logger) await logger.info(`Removed user ${userId} from banned list`);
   } catch (error) {
     if (logger) await logger.error(`Failed to save banned list: ${error.message || error}`);

@@ -1,11 +1,10 @@
 // Server statistics tracking for message counts and new user joins
 // Persists stats to a JSON file in the data directory
 
-import path from 'path';
 import * as config from './config.js';
-import { checkDirExists, createDir, checkFileExists, createFile } from './io.js';
+import { ensureDir, checkFileExists, readJson, writeJson, joinPath } from './io.js';
 
-const statsFilePath = path.join(config.serverStatsPath, config.serverStatsFile);
+const statsFilePath = joinPath(config.serverStatsPath, config.serverStatsFile);
 
 // In-memory stats object
 let stats = {
@@ -16,19 +15,13 @@ let stats = {
 // Ensure the data directory and stats file exist, loading existing stats if present
 export async function loadServerStats(logger) {
   try {
-    if (!(await checkDirExists(config.serverStatsPath))) {
-      await createDir(config.serverStatsPath);
-      if (logger) await logger.info('Created data directory for server stats');
-    }
+    await ensureDir(config.serverStatsPath);
 
     if (await checkFileExists(statsFilePath)) {
-      const raw = await import('fs').then((fs) =>
-        fs.promises.readFile(statsFilePath, 'utf8')
-      );
-      stats = JSON.parse(raw);
+      stats = await readJson(statsFilePath);
       if (logger) await logger.info('Loaded server stats from file');
     } else {
-      await createFile(statsFilePath, JSON.stringify(stats, null, 2));
+      await writeJson(statsFilePath, stats);
       if (logger) await logger.info('Initialized new server stats file');
     }
   } catch (error) {
@@ -39,7 +32,7 @@ export async function loadServerStats(logger) {
 // Persist current in-memory stats to disk
 async function saveServerStats(logger) {
   try {
-    await createFile(statsFilePath, JSON.stringify(stats, null, 2));
+    await writeJson(statsFilePath, stats);
   } catch (error) {
     if (logger) await logger.error(`Failed to save server stats: ${error.message || error}`);
   }
