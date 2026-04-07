@@ -1,7 +1,10 @@
+// Command handler — processes bot commands from channel messages and terminal input
+
+import { stopApi } from './api.js';
+import * as config from './config.js';
 import { prompt } from './ai.js';
 import { isFromTerminal, hasPermission } from './authentication.js';
 import { addBannedUser, removeBannedUser } from './bannedlist.js';
-import * as config from './config.js';
 import { addFilteredWord, removeFilteredWord } from './filter.js';
 import { getServerStats } from './serverstats.js';
 import { shutdown, terminalOutput } from './terminal.js';
@@ -33,9 +36,9 @@ const commands = {
     description: 'Shuts down the bot from terminal.',
     terminalOnly: true,
     execute: async ({ message, logger }) => {
-      logger.info('Exiting...');
+      await logger.info('Exiting...');
       await message.reply('Exiting...');
-      shutdown();
+      shutdown(() => stopApi(logger));
     },
   },
   addfilter: {
@@ -49,9 +52,9 @@ const commands = {
       }
 
       const word = command.args.join(' ');
-      const added = addFilteredWord(word);
+      const added = await addFilteredWord(word);
       if (added) {
-        logger.info(`Added filtered word "${word}" by ${message.author.tag}`);
+        await logger.info(`Added filtered word "${word}" by ${message.author.tag}`);
         await message.reply(`Added "${word}" to filtered words.`);
       } else {
         await message.reply(`"${word}" is already in the filtered words list.`);
@@ -68,9 +71,9 @@ const commands = {
         return;
       }
       const word = command.args.join(' ');
-      const removed = removeFilteredWord(word);
+      const removed = await removeFilteredWord(word);
       if (removed) {
-        logger.info(`Removed filtered word "${word}" by ${message.author.tag}`);
+        await logger.info(`Removed filtered word "${word}" by ${message.author.tag}`);
         await message.reply(`Removed "${word}" from filtered words.`);
       } else {
         await message.reply(`"${word}" is not in the filtered words list.`);
@@ -143,7 +146,7 @@ const commands = {
       }
 
       const question = command.args.join(' ');
-      logger.info(`AI question from ${message.author.tag}: ${question}`);
+      await logger.info(`AI question from ${message.author.tag}: ${question}`);
       await message.channel.sendTyping();
 
       try {

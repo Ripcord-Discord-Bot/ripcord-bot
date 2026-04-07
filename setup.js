@@ -1,4 +1,5 @@
-// Load environment variables from .env file
+// Guild setup script — creates channels, roles, and categories for a new Discord server
+
 import 'dotenv/config.js';
 import { Client, GatewayIntentBits, ChannelType, PermissionFlagsBits } from 'discord.js';
 import * as config from './config.js';

@@ -1,5 +1,4 @@
-// Role management and onboarding via reaction-based role assignment
-// Handles welcome messages, server rules, and Trusted role assignment
+// Role management — Save server rules message ID and handles reaction-based Trusted role assignment
 
 import { Events } from 'discord.js';
 import * as config from './config.js';

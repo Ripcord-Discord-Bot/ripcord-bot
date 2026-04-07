@@ -1,3 +1,5 @@
+// Configuration — loads environment variables and exports bot settings
+
 import 'dotenv/config.js';
 import path from 'path';
 

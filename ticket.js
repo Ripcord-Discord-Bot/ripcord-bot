@@ -1,19 +1,14 @@
-// Ticket system for handling messages posted in the issues channel
-// Automatically creates ticket files for messages in the issues channel
+// Ticket system — creates and persists support tickets from Discord messages
 
-import { ensureDir, writeJson, joinPath } from './io.js';
+import { randomUUID } from 'crypto';
+import { readdir } from 'fs/promises';
+import { ensureDir, writeJson, joinPath, deleteFile, readJson } from './io.js';
 import * as config from './config.js';
 import { isFromChannel } from './authentication.js';
 import { suggestTicketAction } from './ai.js';
 
-// Get the directory name of the current module
 const ticketsDir = config.ticketDirectoryPath;
 
-// Check if message was sent in issues channel and create a ticket file
-// Parameters:
-//   message - Discord message object
-//   logger - Logger instance for logging
-// Returns: Boolean - true if ticket was created, false otherwise
 async function createTicket(message, logger) {
   if (!config.enableTickets) return false;
   if (!isFromChannel(message, config.ticketChannel)) return false;
@@ -31,6 +26,7 @@ async function createTicket(message, logger) {
     const ticketPath = joinPath(ticketsDir, ticketFileName);
 
     const ticket = {
+      id: randomUUID(),
       author: {
         username: message.author.username,
         id: message.author.id,
@@ -72,4 +68,33 @@ async function createTicket(message, logger) {
   }
 }
 
-export { createTicket };
+async function deleteTicket(fileNameOrId, logger) {
+  try {
+    let fileName = fileNameOrId;
+
+    if (!fileNameOrId.endsWith('.json')) {
+      const files = await readdir(ticketsDir);
+      let found = null;
+      for (const f of files) {
+        if (!f.endsWith('.json')) continue;
+        const data = await readJson(joinPath(ticketsDir, f));
+        if (data?.id === fileNameOrId) { found = f; break; }
+      }
+      if (!found) {
+        await logger.error(`deleteTicket: no ticket found with id ${fileNameOrId}`);
+        return false;
+      }
+      fileName = found;
+    }
+
+    const ticketPath = joinPath(ticketsDir, fileName);
+    await deleteFile(ticketPath);
+    await logger.info(`Deleted ticket: ${fileName}`);
+    return true;
+  } catch (error) {
+    await logger.error(`Failed to delete ticket: ${error.message || error}`);
+    return false;
+  }
+}
+
+export { createTicket, deleteTicket };

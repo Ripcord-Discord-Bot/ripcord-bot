@@ -1,5 +1,4 @@
-// Banned user list management
-// Loads and persists a list of banned Discord user IDs
+// Banned user list — Saves and checks banned Discord user IDs
 
 import * as config from './config.js';
 import { ensureDir, loadJson, writeJson, joinPath } from './io.js';
@@ -8,7 +7,6 @@ const bannedListFilePath = joinPath(config.bannedListPath, config.bannedListFile
 
 let bannedIds = new Set();
 
-// Load banned IDs from disk into memory
 export async function loadBannedList(logger) {
   try {
     await ensureDir(config.bannedListPath);
@@ -19,7 +17,7 @@ export async function loadBannedList(logger) {
   }
 }
 
-// Add a user ID to the banned list, persist it, and kick from guild if present
+// Adds user to banned set, persists, and kicks from the guild if they are currently a member
 export async function addBannedUser(userId, logger, guild) {
   bannedIds.add(userId);
   try {
@@ -42,7 +40,6 @@ export async function addBannedUser(userId, logger, guild) {
   }
 }
 
-// Remove a user ID from the banned list and persist it
 export async function removeBannedUser(userId, logger) {
   if (!bannedIds.has(userId)) return false;
   bannedIds.delete(userId);

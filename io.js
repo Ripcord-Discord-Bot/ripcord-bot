@@ -1,4 +1,4 @@
-// File system utility functions for common I/O operations
+// Central file system utilities — all paths are validated against cwd to prevent traversal
 
 import { promises as fsp } from 'fs';
 import { join as joinPath, resolve as resolvePath, sep } from 'path';
@@ -67,4 +67,9 @@ async function loadJson(filePath, defaultValue) {
   return JSON.parse(await readFile(filePath));
 }
 
-export { checkDirExists, createDir, checkFileExists, createFile, appendToFile, readFile, ensureDir, readJson, writeJson, loadJson, joinPath, resolvePath };
+async function deleteFile(filePath) {
+  validatePath(filePath);
+  await fsp.unlink(filePath);
+}
+
+export { checkDirExists, createDir, checkFileExists, createFile, appendToFile, readFile, ensureDir, readJson, writeJson, loadJson, deleteFile, joinPath, resolvePath };

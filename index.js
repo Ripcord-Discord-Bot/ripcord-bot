@@ -1,5 +1,8 @@
+// Entry point — initializes the Discord client and registers event handlers
+
 import { Client, GatewayIntentBits, Events, Partials } from 'discord.js';
 
+import { startApi, stopApi } from './api.js';
 import { setupAudit } from './audit.js';
 import { loadBannedList, isBanned } from './bannedlist.js';
 import * as commands from './commands.js';
@@ -43,6 +46,7 @@ client.once(Events.ClientReady, async (ready) => {
   setupAudit(client, logger);
   setupTerminal(commands.handleTerminalInput, logger);
   setupSigintHandler();
+  await startApi(logger);
 });
 
 // Handle all incoming messages
@@ -90,5 +94,6 @@ client.on(Events.GuildMemberAdd, async (member) => {
 // Connect to Discord
 client.login(config.token).catch(async (error) => {
   await logger.error(`Login failed: ${error.message || error}`);
+  await stopApi(logger);
   process.exit(1);
 });

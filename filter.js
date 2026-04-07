@@ -1,4 +1,5 @@
-// Import filtering configuration and AI functions
+// Word filter — manages the filtered word list and moderates messages
+
 import * as config from './config.js';
 import { checkWithOllama } from './ai.js';
 import { hasRole } from './authentication.js';
@@ -13,13 +14,10 @@ async function initFilter() {
   filteredWords = await loadJson(filteredWordsFile, []);
 }
 
-// Add a word to the filter list if it's not already present
 async function addFilteredWord(word) {
   const normalized = word.toLowerCase().trim();
-  // Only add if not empty and not already in the list
   if (normalized && !filteredWords.includes(normalized)) {
     filteredWords.push(normalized);
-    // Save to file
     try {
       await writeJson(filteredWordsFile, filteredWords);
     } catch (error) {
@@ -30,7 +28,6 @@ async function addFilteredWord(word) {
   return false;
 }
 
-// Remove a word from the filter list if it exists
 async function removeFilteredWord(word) {
   const normalized = word.toLowerCase().trim();
   const index = filteredWords.indexOf(normalized);

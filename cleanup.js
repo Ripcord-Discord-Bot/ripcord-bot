@@ -1,4 +1,5 @@
-// Load environment variables from .env file
+// Guild cleanup script — deletes messages, channels, roles, and categories from a Discord server
+
 import 'dotenv/config.js';
 import { Client, GatewayIntentBits, ChannelType } from 'discord.js';
 import { fileURLToPath } from 'url';

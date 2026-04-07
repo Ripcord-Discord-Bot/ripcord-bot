@@ -1,8 +1,6 @@
-// AI integration module using Ollama for content analysis and user prompts
-// Handles all interactions with the local Ollama API server
+// AI interface - AI integration using Ollama
 
 import * as config from './config.js';
-
 
 let ollamaAvailable = true;
 
@@ -20,8 +18,7 @@ export async function checkOllamaHealth(logger) {
   }
 }
 
-// Generic prompt function to send messages to Ollama and get a response
-// Returns: Response text from AI model, or null if request fails or Ollama is unavailable
+// Returns response text, or null if Ollama is unavailable or the request fails
 export async function prompt(messages, logger, model = config.ollamaModel) {
   if (!ollamaAvailable) {
     if (logger) await logger.error('AI features are disabled: Ollama server is not available.');
@@ -49,11 +46,6 @@ export async function prompt(messages, logger, model = config.ollamaModel) {
   }
 }
 
-// Suggest a moderation course of action for a ticket
-// Parameters:
-//   ticket - Ticket object with author, message, and metadata fields
-//   logger - Logger instance for error logging
-// Returns: Suggestion string from AI, or null if unavailable
 export async function suggestTicketAction(ticket, logger) {
   const { author, message, server } = ticket;
   const messages = [
@@ -66,13 +58,8 @@ export async function suggestTicketAction(ticket, logger) {
   return await prompt(messages, logger);
 }
 
-// Check if message content contains offensive language using AI moderation
-// Parameters:
-//   content - The message text to analyze
-//   logger - Logger instance for error logging
-// Returns: Boolean - true if message contains offensive language, false otherwise
+// Returns true if the content contains offensive language, false otherwise
 export async function checkWithOllama(content, logger) {
-  // Create a moderation prompt for the AI
   const messages = [
     {
       role: 'user',
