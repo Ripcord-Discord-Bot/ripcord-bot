@@ -17,7 +17,8 @@ async function request(method, path, body) {
 }
 
 export const api = {
-  getStats:      ()           => request('GET',    '/stats'),
+  getStats:          ()        => request('GET',    '/stats'),
+  getStatsHistory:   (days = 30) => request('GET',    `/stats/history?days=${days}`),
   getFilter:     ()           => request('GET',    '/filter'),
   addFilter:     (word)       => request('POST',   '/filter', { word }),
   removeFilter:  (word)       => request('DELETE', `/filter/${encodeURIComponent(word)}`),

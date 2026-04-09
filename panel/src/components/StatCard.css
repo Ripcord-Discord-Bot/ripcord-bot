@@ -1,0 +1,45 @@
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--stat-accent, var(--accent));
+  border-radius: 10px;
+  padding: 18px 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stat-card--default { --stat-accent: var(--accent); }
+.stat-card--green   { --stat-accent: var(--success); }
+.stat-card--red     { --stat-accent: var(--danger); }
+.stat-card--yellow  { --stat-accent: var(--warning); }
+.stat-card--blue    { --stat-accent: #3b82f6; }
+
+.stat-card-value {
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text);
+}
+
+.stat-card-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.stat-card-skeleton {
+  display: block;
+  width: 56px;
+  height: 32px;
+  background: var(--border);
+  border-radius: 6px;
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
+}

@@ -1,26 +1,62 @@
-import { useEffect } from 'react'
 import { api } from '../api'
 import { useApiData } from '../hooks/useApiData'
+import { usePoll } from '../hooks/usePoll'
 import Card from '../components/Card'
+import PageHeader from '../components/PageHeader'
+import StatCard from '../components/StatCard'
+import StatGrid from '../components/StatGrid'
+import StatSection from '../components/StatSection'
+import RoleCountTable from '../components/RoleCountTable'
 
 function Stats() {
   const { data: stats, error, refetch } = useApiData(api.getStats)
+  const { data: tickets, refetch: refetchTickets } = useApiData(api.getTickets, [])
 
-  useEffect(() => {
-    const id = setInterval(refetch, 10000)
-    return () => clearInterval(id)
-  }, [refetch])
+  usePoll(() => { refetch(); refetchTickets() }, 10000, [refetch, refetchTickets])
+
+  const fmt = (key) => stats ? (stats[key] ?? 0).toLocaleString() : null
 
   return (
     <>
-      <h1 className="page-title">Statistics</h1>
-      {error && <p className="error-text">{error}</p>}
-      <Card title="Messages Logged">
-        <p className="stat-value">{stats ? stats.messages.toLocaleString() : '—'}</p>
-      </Card>
-      <Card title="New Users Joined">
-        <p className="stat-value">{stats ? stats.newUsers.toLocaleString() : '—'}</p>
-      </Card>
+      <PageHeader title="Statistics" error={error} />
+
+      <StatSection title="Activity">
+        <StatGrid>
+          <StatCard label="Messages Logged" value={fmt('messages')} accent="default" />
+          <StatCard label="Commands Run" value={fmt('commandsRun')} accent="default" />
+        </StatGrid>
+      </StatSection>
+
+      <StatSection title="Members">
+        <StatGrid>
+          <StatCard label="Users Joined" value={fmt('newUsers')} accent="green" />
+          <StatCard label="Users Left" value={fmt('usersLeft')} accent="red" />
+        </StatGrid>
+      </StatSection>
+
+      <StatSection title="Moderation">
+        <StatGrid>
+          <StatCard label="Filtered Messages" value={fmt('filteredMessages')} accent="yellow" />
+          <StatCard label="Banned Users Kicked" value={fmt('bannedUsersKicked')} accent="red" />
+        </StatGrid>
+      </StatSection>
+
+      <StatSection title="Tickets">
+        <StatGrid>
+          <StatCard label="Created" value={fmt('ticketsCreated')} accent="blue" />
+          <StatCard label="Resolved" value={fmt('ticketsResolved')} accent="green" />
+          <StatCard label="Open Tickets" value={tickets ? tickets.length.toLocaleString() : null} accent="yellow" />
+        </StatGrid>
+      </StatSection>
+
+      <StatSection title="Roles">
+        <Card>
+          {!stats
+            ? <p className="empty">Loading...</p>
+            : <RoleCountTable roleCounts={stats.roleCounts ?? {}} />
+          }
+        </Card>
+      </StatSection>
     </>
   )
 }

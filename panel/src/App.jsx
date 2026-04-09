@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import Layout from './components/Layout'
-import Dashboard from './pages/Dashboard'
 import Filter from './pages/Filter'
 import BannedList from './pages/BannedList'
 import Logs from './pages/Logs'
@@ -11,26 +10,29 @@ import { api } from './api'
 import './App.css'
 
 const PAGES = {
-  dashboard: Dashboard,
+  stats: Stats,
   filter: Filter,
   banned: BannedList,
-  stats: Stats,
   logs: Logs,
   tickets: Tickets,
   config: Config,
 }
 
 function App() {
-  const [page, setPage] = useState('dashboard')
+  const [page, setPage] = useState('stats')
   const [ticketCount, setTicketCount] = useState(0)
-  const Page = PAGES[page] ?? Dashboard
+  const [botOnline, setBotOnline] = useState(null)
+  const Page = PAGES[page] ?? Stats
 
   useEffect(() => {
     async function check() {
       try {
         const tickets = await api.getTickets()
         setTicketCount(tickets.length)
-      } catch { /* ignore */ }
+        setBotOnline(true)
+      } catch {
+        setBotOnline(false)
+      }
     }
     check()
     const id = setInterval(check, 10000)
@@ -38,7 +40,7 @@ function App() {
   }, [])
 
   return (
-    <Layout page={page} onNavigate={setPage} ticketBadge={ticketCount}>
+    <Layout page={page} onNavigate={setPage} ticketBadge={ticketCount} botOnline={botOnline}>
       <Page onTicketDeleted={page === 'tickets' ? () => setTicketCount((c) => Math.max(0, c - 1)) : undefined} />
     </Layout>
   )

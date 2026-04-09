@@ -1,0 +1,27 @@
+.page-header {
+  margin-bottom: 24px;
+}
+
+/* Suppress the h1's own bottom margin — page-header owns the spacing */
+.page-header .page-title {
+  margin-bottom: 0;
+}
+
+.page-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+/* When there are no actions the top is just the title — restore vertical rhythm */
+.page-header-top:only-child {
+  margin-bottom: 0;
+}
+
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}

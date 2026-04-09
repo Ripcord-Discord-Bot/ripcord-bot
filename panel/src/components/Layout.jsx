@@ -1,19 +1,24 @@
+import './Layout.css'
+import ApiStatus from './ApiStatus'
+
 const NAV = [
-  { id: 'dashboard', label: 'Dashboard' },
+  { id: 'stats', label: 'Statistics' },
   { id: 'filter', label: 'Word Filter' },
   { id: 'banned', label: 'Banned List' },
-  { id: 'stats', label: 'Statistics' },
   { id: 'logs', label: 'Logs' },
   { id: 'tickets', label: 'Tickets' },
   { id: 'config', label: 'Configuration' },
 ]
 
-function Layout({ page, onNavigate, ticketBadge, children }) {
+function Layout({ page, onNavigate, ticketBadge, botOnline, children }) {
   return (
     <div className="layout">
       <aside className="sidebar">
-        <div className="sidebar-title">
-          Rip<span>cord</span>
+        <div className="sidebar-header">
+          <div className="sidebar-title">
+            Rip<span>cord</span>
+          </div>
+          <ApiStatus online={botOnline} />
         </div>
         <nav>
           {NAV.map((item) => (

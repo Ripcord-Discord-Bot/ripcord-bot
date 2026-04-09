@@ -6,7 +6,7 @@ import { prompt } from './ai.js';
 import { isFromTerminal, hasPermission } from './authentication.js';
 import { addBannedUser, removeBannedUser } from './bannedlist.js';
 import { addFilteredWord, removeFilteredWord } from './filter.js';
-import { getServerStats } from './serverstats.js';
+import { getServerStats, recordCommandRun } from './serverstats.js';
 import { shutdown, terminalOutput } from './terminal.js';
 const prefix = config.commandPrefix;
 
@@ -117,8 +117,24 @@ const commands = {
     description: 'Displays server statistics.',
     permission: 'ModerateMembers',
     execute: async ({ message }) => {
-      const { messages, newUsers } = getServerStats();
-      await message.reply(`**Server Stats**\nMessages logged: ${messages}\nNew users joined: ${newUsers}`);
+      const { messages, newUsers, commandsRun, filteredMessages, ticketsCreated, ticketsResolved, bannedUsersKicked, usersLeft, roleCounts } = getServerStats();
+      const roleLines = Object.entries(roleCounts)
+        .sort((a, b) => b[1] - a[1])
+        .map(([role, count]) => `  ${role}: ${count}`)
+        .join('\n');
+      const roleSection = roleLines ? `\nRole Counts:\n${roleLines}` : '';
+      await message.reply(
+        `**Server Stats**\n` +
+        `Messages logged: ${messages}\n` +
+        `Commands run: ${commandsRun}\n` +
+        `New users joined: ${newUsers}\n` +
+        `Users left: ${usersLeft}\n` +
+        `Filtered messages: ${filteredMessages}\n` +
+        `Tickets created: ${ticketsCreated}\n` +
+        `Tickets resolved: ${ticketsResolved}\n` +
+        `Banned users kicked: ${bannedUsersKicked}` +
+        roleSection
+      );
     },
   },
   help: {
@@ -215,6 +231,7 @@ async function handleCommand(message, logger, allowNoPrefix = false) {
 
   try {
     await commandDef.execute({ message, command, logger, isTerminal });
+    await recordCommandRun(logger);
   } catch (error) {
     await logger.error(`Error executing command ${command.name}: ${error.message || error}`);
     await message.reply('An error occurred while executing the command.');

@@ -95,6 +95,29 @@ async function handleRequest(req, res) {
       return json(res, 200, stats);
     }
 
+    // GET /stats/history?days=N  (default 30, max 365)
+    if (route === '/stats/history' && method === 'GET') {
+      const daysParam = parseInt(url.searchParams.get('days') ?? '30', 10);
+      const days = Number.isFinite(daysParam) && daysParam > 0 ? Math.min(daysParam, 365) : 30;
+      const historyDir = resolvePath(joinPath(config.serverStatsPath, 'stats-history'));
+      try {
+        const files = await fsp.readdir(historyDir);
+        const snapshots = await Promise.all(
+          files
+            .filter((f) => /^\d{4}-\d{2}-\d{2}\.json$/.test(f))
+            .sort()
+            .slice(-days)
+            .map(async (f) => {
+              const data = await fsp.readFile(joinPath(historyDir, f), 'utf8');
+              return JSON.parse(data);
+            })
+        );
+        return json(res, 200, snapshots);
+      } catch {
+        return json(res, 200, []);
+      }
+    }
+
     // GET /filter
     if (route === '/filter' && method === 'GET') {
       const words = await loadJson(paths.filteredWords, []);

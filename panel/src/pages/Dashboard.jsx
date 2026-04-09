@@ -1,29 +1,26 @@
 import { api } from '../api'
 import { useApiData } from '../hooks/useApiData'
 import Card from '../components/Card'
+import PageHeader from '../components/PageHeader'
+import StatCard from '../components/StatCard'
+import StatGrid from '../components/StatGrid'
 
 function Dashboard() {
   const { data: stats, error } = useApiData(api.getStats)
 
   return (
     <>
-      <h1 className="page-title">Dashboard</h1>
+      <PageHeader title="Dashboard" />
       <Card title="Bot Status">
         {error
           ? <p className="error-text">API unavailable: {error}</p>
           : <p className="status-ok">API connected</p>
         }
       </Card>
-      <Card title="Quick Stats">
-        {stats ? (
-          <>
-            <p>Messages logged: <strong>{stats.messages.toLocaleString()}</strong></p>
-            <p>New users joined: <strong>{stats.newUsers.toLocaleString()}</strong></p>
-          </>
-        ) : (
-          <p className="empty">{error ? 'Unavailable' : 'Loading...'}</p>
-        )}
-      </Card>
+      <StatGrid>
+        <StatCard label="Messages Logged" value={stats ? stats.messages.toLocaleString() : null} />
+        <StatCard label="Users Joined" value={stats ? stats.newUsers.toLocaleString() : null} accent="green" />
+      </StatGrid>
     </>
   )
 }

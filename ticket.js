@@ -6,6 +6,7 @@ import { ensureDir, writeJson, joinPath, deleteFile, readJson } from './io.js';
 import * as config from './config.js';
 import { isFromChannel } from './authentication.js';
 import { suggestTicketAction } from './ai.js';
+import { recordTicketCreated, recordTicketResolved } from './serverstats.js';
 
 const ticketsDir = config.ticketDirectoryPath;
 
@@ -61,6 +62,7 @@ async function createTicket(message, logger) {
 
     await writeJson(ticketPath, ticket);
     await logger.info(`Created ticket: ${ticketFileName}`);
+    await recordTicketCreated(logger);
     return true;
   } catch (error) {
     await logger.error(`Failed to create ticket: ${error.message || error}`);
@@ -90,6 +92,7 @@ async function deleteTicket(fileNameOrId, logger) {
     const ticketPath = joinPath(ticketsDir, fileName);
     await deleteFile(ticketPath);
     await logger.info(`Deleted ticket: ${fileName}`);
+    await recordTicketResolved(logger);
     return true;
   } catch (error) {
     await logger.error(`Failed to delete ticket: ${error.message || error}`);

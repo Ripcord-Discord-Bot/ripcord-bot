@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api'
 import { useApiData } from '../hooks/useApiData'
+import PageHeader from '../components/PageHeader'
+import Card from '../components/Card'
+import './Logs.css'
 
 function todayDate() {
   return new Date().toISOString().slice(0, 10)
@@ -23,30 +26,31 @@ function Logs() {
 
   return (
     <>
-      <h1 className="page-title">Logs</h1>
-      <div className="log-controls">
-        <input
-          type="date"
-          value={date}
-          max={todayDate()}
-          onChange={(e) => setDate(e.target.value)}
-        />
-        {['ALL', 'INFO', 'WARN', 'ERROR'].map((lvl) => (
-          <button
-            key={lvl}
-            className={`btn${filter === lvl ? '' : ' secondary'}`}
-            style={filter !== lvl ? { background: 'var(--surface)', color: 'var(--muted)', border: '1px solid var(--border)' } : {}}
-            onClick={() => setFilter(lvl)}
-          >
-            {lvl}
-          </button>
-        ))}
-        <span className="log-count">
-          {visible.length} {visible.length === 1 ? 'entry' : 'entries'}
-        </span>
-      </div>
-
-      {error && <p className="error-text">{error}</p>}
+      <PageHeader title="Logs" error={error} />
+      <Card>
+        <div className="log-controls">
+          <input
+            type="date"
+            value={date}
+            max={todayDate()}
+            onChange={(e) => setDate(e.target.value)}
+          />
+          <div className="log-level-filters">
+            {['ALL', 'INFO', 'WARN', 'ERROR'].map((lvl) => (
+              <button
+                key={lvl}
+                className={filter === lvl ? 'btn' : 'btn secondary'}
+                onClick={() => setFilter(lvl)}
+              >
+                {lvl}
+              </button>
+            ))}
+          </div>
+          <span className="log-count">
+            {visible.length} {visible.length === 1 ? 'entry' : 'entries'}
+          </span>
+        </div>
+      </Card>
 
       {loading ? (
         <p className="empty">Loading...</p>

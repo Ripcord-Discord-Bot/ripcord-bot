@@ -3,6 +3,7 @@
 import { Events } from 'discord.js';
 import * as config from './config.js';
 import { ensureDir, loadJson, writeJson, joinPath } from './io.js';
+import { recordRoleAssigned } from './serverstats.js';
 
 const THUMBSUP = '👍';
 const rulesFilePath = joinPath(config.serverRulesIdPath, config.serverRulesIdFile);
@@ -108,6 +109,7 @@ export async function setupRoleEvents(client, logger) {
       if (member.roles.cache.has(trusted.id)) return;
 
       await member.roles.add(trusted);
+      await recordRoleAssigned(config.trustedRole, logger);
     } catch (error) {
       if (logger) await logger.error(`Failed to assign role to ${user.tag}: ${error.message || error}`);
     }

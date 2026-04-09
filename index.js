@@ -10,7 +10,7 @@ import * as config from './config.js';
 import { checkAndModerate, initFilter } from './filter.js';
 import logger from './logger.js';
 import { setupRoleEvents } from './roles.js';
-import { loadServerStats, recordMessage, recordNewUser } from './serverstats.js';
+import { loadServerStats, recordMessage, recordNewUser, recordBannedUserKicked, recordUserLeft, setRoleCounts, snapshotDaily } from './serverstats.js';
 import { setupTerminal, setupSigintHandler } from './terminal.js';
 import { createTicket } from './ticket.js';
 
@@ -46,7 +46,32 @@ client.once(Events.ClientReady, async (ready) => {
   setupAudit(client, logger);
   setupTerminal(commands.handleTerminalInput, logger);
   setupSigintHandler();
+
+  // Seed role counts from live guild data on startup
+  const guild = client.guilds.cache.first();
+  if (guild) {
+    const members = await guild.members.fetch();
+    const counts = {};
+    for (const member of members.values()) {
+      for (const role of member.roles.cache.values()) {
+        if (role.name === '@everyone') continue;
+        counts[role.name] = (counts[role.name] || 0) + 1;
+      }
+    }
+    await setRoleCounts(counts, logger);
+  }
+
   await startApi(logger);
+
+  // Snapshot stats at midnight — poll every minute, write when the date rolls over
+  let _snapshotDate = new Date().toISOString().slice(0, 10);
+  setInterval(async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    if (today !== _snapshotDate) {
+      await snapshotDaily(_snapshotDate, logger);
+      _snapshotDate = today;
+    }
+  }, 60_000);
 });
 
 // Handle all incoming messages
@@ -72,6 +97,7 @@ client.on(Events.GuildMemberAdd, async (member) => {
     try {
       await member.kick('User is on the banned list');
       await logger.warn(`Kicked banned user ${member.user.tag} (${member.id})`);
+      await recordBannedUserKicked(logger);
     } catch (error) {
       await logger.error(`Failed to kick banned user ${member.user.tag}: ${error.message || error}`);
     }
@@ -89,6 +115,11 @@ client.on(Events.GuildMemberAdd, async (member) => {
   } catch {
     await logger.warn(`Could not DM onboarding message to ${member.user.tag}`);
   }
+});
+
+// Track members leaving
+client.on(Events.GuildMemberRemove, async (member) => {
+  await recordUserLeft(logger);
 });
 
 // Connect to Discord

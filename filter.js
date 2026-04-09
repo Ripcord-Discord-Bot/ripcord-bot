@@ -4,6 +4,7 @@ import * as config from './config.js';
 import { checkWithOllama } from './ai.js';
 import { hasRole } from './authentication.js';
 import { ensureDir, loadJson, writeJson, joinPath } from './io.js';
+import { recordFilteredMessage } from './serverstats.js';
 
 const filteredWordsFile = joinPath(config.filteredWordsDir, config.filteredWordsFile);
 
@@ -54,6 +55,7 @@ function containsFilteredWord(content) {
 
 // Delete a message and send a warning DM to the author
 async function deleteAndWarn(message, reason, logger) {
+  await recordFilteredMessage(logger);
   if (message.deletable) {
     try {
       await message.delete();

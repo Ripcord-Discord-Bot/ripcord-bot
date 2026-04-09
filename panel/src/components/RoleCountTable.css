@@ -1,0 +1,43 @@
+.role-table {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.role-table-row {
+  display: grid;
+  grid-template-columns: 140px 1fr 48px;
+  align-items: center;
+  gap: 12px;
+}
+
+.role-table-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.role-table-bar-wrap {
+  height: 6px;
+  background: var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.role-table-bar {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  min-width: 4px;
+  transition: width 0.4s ease;
+}
+
+.role-table-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  text-align: right;
+}
