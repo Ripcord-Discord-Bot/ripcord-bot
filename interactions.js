@@ -15,36 +15,28 @@ function getGuild() {
   return _client?.guilds.cache.first() ?? null;
 }
 
-// Find a text channel by name, or null
+// Find a text channel by name. Returns the channel or null.
 export function findTextChannel(name) {
   const guild = getGuild();
   if (!guild) return null;
   return guild.channels.cache.find((ch) => ch.name === name && ch.isTextBased()) ?? null;
 }
 
-// Find a voice channel by name, or null
+// Find a voice channel by name. Returns the channel or null.
 export function findVoiceChannel(name) {
   const guild = getGuild();
   if (!guild) return null;
-  return (
-    guild.channels.cache.find(
-      (ch) => ch.name === name && ch.type === ChannelType.GuildVoice
-    ) ?? null
-  );
+  return guild.channels.cache.find((ch) => ch.name === name && ch.type === ChannelType.GuildVoice) ?? null;
 }
 
-// Find a category by name, or null
+// Find a category by name. Returns the category or null.
 export function findCategory(name) {
   const guild = getGuild();
   if (!guild) return null;
-  return (
-    guild.channels.cache.find(
-      (ch) => ch.name === name && ch.type === ChannelType.GuildCategory
-    ) ?? null
-  );
+  return guild.channels.cache.find((ch) => ch.name === name && ch.type === ChannelType.GuildCategory) ?? null;
 }
 
-// Returns an array of all text channels in the guild
+// List all text channels in the guild, sorted by name.
 export function listTextChannels() {
   const guild = getGuild();
   if (!guild) return [];
@@ -54,7 +46,7 @@ export function listTextChannels() {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-// Returns an array of all voice channels in the guild
+// List all voice channels in the guild, sorted by name.
 export function listVoiceChannels() {
   const guild = getGuild();
   if (!guild) return [];
@@ -64,7 +56,17 @@ export function listVoiceChannels() {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-// Send a message to a channel by name. Returns the sent message or null.
+// List all categories in the guild, sorted by name.
+export function listCategories() {
+  const guild = getGuild();
+  if (!guild) return [];
+  return guild.channels.cache
+    .filter((ch) => ch.type === ChannelType.GuildCategory)
+    .map((ch) => ({ id: ch.id, name: ch.name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// Send a message to a text channel by name. Returns the sent message, or null on failure.
 export async function sendToChannel(channelName, content) {
   const channel = findTextChannel(channelName);
   if (!channel) {
@@ -79,7 +81,7 @@ export async function sendToChannel(channelName, content) {
   }
 }
 
-// Create a text channel. Returns the new channel or null if it already exists / on error.
+// Create a text channel. Returns the new channel, or the existing one if already present.
 export async function createTextChannel(name, options = {}) {
   const guild = getGuild();
   if (!guild) return null;
@@ -107,7 +109,7 @@ export async function createTextChannel(name, options = {}) {
   }
 }
 
-// Create a voice channel. Returns the new channel or null if it already exists / on error.
+// Create a voice channel. Returns the new channel, or the existing one if already present.
 export async function createVoiceChannel(name, options = {}) {
   const guild = getGuild();
   if (!guild) return null;
@@ -136,7 +138,7 @@ export async function createVoiceChannel(name, options = {}) {
   }
 }
 
-// Create a category. Returns the new category or null if it already exists / on error.
+// Create a category. Returns the new category, or the existing one if already present.
 export async function createCategory(name, options = {}) {
   const guild = getGuild();
   if (!guild) return null;
@@ -162,13 +164,46 @@ export async function createCategory(name, options = {}) {
   }
 }
 
-// Delete a channel by name (text or voice). Returns true on success, false otherwise.
-export async function deleteChannel(name, reason = null) {
-  const guild = getGuild();
-  if (!guild) return false;
+// Create an empty category for text channels. Returns the category or null.
+export async function createTextCategory(name, options = {}) {
+  return createCategory(name, options);
+}
 
-  const channel =
-    guild.channels.cache.find((ch) => ch.name === name) ?? null;
+// Create an empty category for voice channels. Returns the category or null.
+export async function createVoiceCategory(name, options = {}) {
+  return createCategory(name, options);
+}
+
+// Move channels into a category by name. Returns the number of channels successfully moved.
+export async function moveChannelsToCategory(channelNames, categoryName) {
+  const category = findCategory(categoryName);
+  if (!category) {
+    if (_logger) await _logger.warn(`Interactions: category "${categoryName}" not found`);
+    return 0;
+  }
+
+  let moved = 0;
+  for (const name of channelNames) {
+    const channel = findTextChannel(name) ?? findVoiceChannel(name);
+    if (!channel) {
+      if (_logger) await _logger.warn(`Interactions: channel "${name}" not found for move`);
+      continue;
+    }
+    try {
+      await channel.setParent(category.id, { lockPermissions: false });
+      moved++;
+    } catch (error) {
+      if (_logger) await _logger.error(`Interactions: failed to move "${name}" to category "${categoryName}": ${error.message || error}`);
+    }
+  }
+
+  if (_logger) await _logger.info(`Interactions: moved ${moved} channel(s) to category "${categoryName}"`);
+  return moved;
+}
+
+// Delete a channel by name (text or voice). Returns true on success.
+export async function deleteChannel(name, reason = null) {
+  const channel = findTextChannel(name) ?? findVoiceChannel(name);
 
   if (!channel) {
     if (_logger) await _logger.warn(`Interactions: channel #${name} not found for deletion`);
@@ -185,29 +220,44 @@ export async function deleteChannel(name, reason = null) {
   }
 }
 
-// Find a member by ID or username, or null
+// Delete a category by name. Returns true on success.
+export async function deleteCategory(name, reason = null) {
+  const category = findCategory(name);
+
+  if (!category) {
+    if (_logger) await _logger.warn(`Interactions: category "${name}" not found for deletion`);
+    return false;
+  }
+
+  try {
+    await category.delete(reason);
+    if (_logger) await _logger.info(`Interactions: deleted category "${name}"`);
+    return true;
+  } catch (error) {
+    if (_logger) await _logger.error(`Interactions: failed to delete category "${name}": ${error.message || error}`);
+    return false;
+  }
+}
+
+// Find a guild member by ID, username, or tag. Returns the member or null.
 export async function findMember(identifier) {
   const guild = getGuild();
   if (!guild) return null;
 
-  // Try cache by ID first
+  // Try cache by ID, then fetch by ID, then fall back to username/tag search
   const byId = guild.members.cache.get(identifier);
   if (byId) return byId;
 
-  // Try fetch by ID
   try {
     return await guild.members.fetch(identifier);
   } catch {
-    // Not found by ID — try by username
-    return (
-      guild.members.cache.find(
-        (m) => m.user.username === identifier || m.user.tag === identifier
-      ) ?? null
-    );
+    return guild.members.cache.find(
+      (m) => m.user.username === identifier || m.user.tag === identifier
+    ) ?? null;
   }
 }
 
-// Send a direct message to a user by ID or username. Returns the message or null.
+// Send a direct message to a member by ID, username, or tag. Returns the message, or null on failure.
 export async function sendDM(userIdentifier, content) {
   const member = await findMember(userIdentifier);
   if (!member) {
@@ -224,7 +274,7 @@ export async function sendDM(userIdentifier, content) {
   }
 }
 
-// Kick a guild member by ID or username. Returns true on success, false otherwise.
+// Kick a guild member by ID, username, or tag. Returns true on success.
 export async function kickMember(userId, reason = null) {
   const member = await findMember(userId);
   if (!member) {
@@ -242,8 +292,9 @@ export async function kickMember(userId, reason = null) {
 }
 
 // Set permission overwrites on a channel for a role or user.
-// target: role or member object; allow/deny: arrays of PermissionFlagsBits values
-export async function setChannelPermissions(channelName, target, { allow = [], deny = [] } = {}) {  const channel = findTextChannel(channelName) ?? findVoiceChannel(channelName);
+// allow/deny: arrays of PermissionFlagsBits values. Returns true on success.
+export async function setChannelPermissions(channelName, target, { allow = [], deny = [] } = {}) {
+  const channel = findTextChannel(channelName) ?? findVoiceChannel(channelName);
   if (!channel) {
     if (_logger) await _logger.warn(`Interactions: channel #${channelName} not found for permission update`);
     return false;

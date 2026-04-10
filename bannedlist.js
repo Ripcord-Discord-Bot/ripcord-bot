@@ -9,6 +9,7 @@ const bannedListFilePath = joinPath(config.bannedListPath, config.bannedListFile
 let _logger = null;
 let bannedIds = new Set();
 
+// Load the banned list from disk and initialise the logger.
 export async function loadBannedList(logger) {
   _logger = logger;
   try {
@@ -20,7 +21,7 @@ export async function loadBannedList(logger) {
   }
 }
 
-// Adds user to banned set, persists, and kicks from the guild if they are currently a member
+// Add a user to the banned set, persist to disk, and kick from the guild.
 export async function addBannedUser(userId) {
   bannedIds.add(userId);
   try {
@@ -33,6 +34,7 @@ export async function addBannedUser(userId) {
   await kickMember(userId, 'Added to banned list');
 }
 
+// Remove a user from the banned set and persist to disk. Returns false if not found.
 export async function removeBannedUser(userId) {
   if (!bannedIds.has(userId)) return false;
   bannedIds.delete(userId);
@@ -45,7 +47,7 @@ export async function removeBannedUser(userId) {
   return true;
 }
 
-// Check if a user ID is banned
+// Check if a user ID is in the banned set.
 export function isBanned(userId) {
   return bannedIds.has(userId);
 }
