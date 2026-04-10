@@ -52,7 +52,7 @@ function Config() {
   const [local, setLocal] = useState({})
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
-  const [wasSaved, setWasSaved] = useState(false)
+  const [restarting, setRestarting] = useState(false)
 
   useEffect(() => {
     if (saved) setLocal(saved)
@@ -60,14 +60,14 @@ function Config() {
 
   function handleChange(key, value) {
     setLocal((prev) => ({ ...prev, [key]: value }))
-    setWasSaved(false)
+    setRestarting(false)
   }
 
   async function handleSave() {
     if (!saved) return
     setSaving(true)
     setSaveError(null)
-    setWasSaved(false)
+    setRestarting(false)
     try {
       const changed = Object.fromEntries(
         Object.keys(local)
@@ -77,7 +77,7 @@ function Config() {
       if (Object.keys(changed).length === 0) return
       await api.saveConfig(changed)
       setSaved({ ...local })
-      setWasSaved(true)
+      setRestarting(true)
     } catch (e) {
       setSaveError(e.message)
     } finally {
@@ -95,8 +95,8 @@ function Config() {
   return (
     <>
       <PageHeader title="Configuration" error={saveError}>
-        {wasSaved && <span className="cfg-saved-notice">Saved — restart bot to apply</span>}
-        <button className="btn" onClick={handleSave} disabled={saving || !isDirty()}>
+        {restarting && <span className="cfg-saved-notice">Saved — bot is restarting...</span>}
+        <button className="btn" onClick={handleSave} disabled={saving || restarting || !isDirty()}>
           {saving ? 'Saving...' : 'Save Changes'}
         </button>
       </PageHeader>

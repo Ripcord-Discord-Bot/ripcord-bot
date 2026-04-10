@@ -34,6 +34,10 @@ export const ollamaModel = process.env.OLLAMA_MODEL || 'mistral';
 export const enableTickets = process.env.ENABLE_TICKETS === 'false' ? false : true;
 export const ticketDirectoryPath = process.env.TICKET_DIRECTORY_PATH || path.resolve(process.cwd(), 'tickets');
 
+// Scheduler
+export const schedulesPath = process.env.SCHEDULES_PATH || path.resolve(process.cwd(), 'data');
+export const schedulesFile = process.env.SCHEDULES_FILE || 'schedules.json';
+
 // Persistence
 export const bannedListPath = process.env.BANNED_LIST_PATH || path.resolve(process.cwd(), 'data');
 export const bannedListFile = process.env.BANNED_LIST_FILE || 'bannedlist.json';

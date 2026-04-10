@@ -164,7 +164,6 @@
   border-bottom: 1px solid var(--border);
 }
 
-/* Label/value rows — mirrors cfg-row visual language */
 .ticket-detail-row {
   display: flex;
   align-items: baseline;

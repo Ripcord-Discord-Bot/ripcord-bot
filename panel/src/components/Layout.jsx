@@ -7,6 +7,7 @@ const NAV = [
   { id: 'banned', label: 'Banned List' },
   { id: 'logs', label: 'Logs' },
   { id: 'tickets', label: 'Tickets' },
+  { id: 'scheduler', label: 'Scheduler' },
   { id: 'config', label: 'Configuration' },
 ]
 

@@ -10,7 +10,13 @@ import { recordTicketCreated, recordTicketResolved } from './serverstats.js';
 
 const ticketsDir = config.ticketDirectoryPath;
 
-async function createTicket(message, logger) {
+let _logger = null;
+
+export function setupTickets(logger) {
+  _logger = logger;
+}
+
+async function createTicket(message) {
   if (!config.enableTickets) return false;
   if (!isFromChannel(message, config.ticketChannel)) return false;
 
@@ -58,19 +64,19 @@ async function createTicket(message, logger) {
       moderatorSuggestion: null,
     };
 
-    ticket.moderatorSuggestion = (await suggestTicketAction(ticket, logger)) ?? null;
+    ticket.moderatorSuggestion = (await suggestTicketAction(ticket, _logger)) ?? null;
 
     await writeJson(ticketPath, ticket);
-    await logger.info(`Created ticket: ${ticketFileName}`);
-    await recordTicketCreated(logger);
+    if (_logger) await _logger.info(`Created ticket: ${ticketFileName}`);
+    await recordTicketCreated();
     return true;
   } catch (error) {
-    await logger.error(`Failed to create ticket: ${error.message || error}`);
+    if (_logger) await _logger.error(`Failed to create ticket: ${error.message || error}`);
     return false;
   }
 }
 
-async function deleteTicket(fileNameOrId, logger) {
+async function deleteTicket(fileNameOrId) {
   try {
     let fileName = fileNameOrId;
 
@@ -83,7 +89,7 @@ async function deleteTicket(fileNameOrId, logger) {
         if (data?.id === fileNameOrId) { found = f; break; }
       }
       if (!found) {
-        await logger.error(`deleteTicket: no ticket found with id ${fileNameOrId}`);
+        if (_logger) await _logger.error(`deleteTicket: no ticket found with id ${fileNameOrId}`);
         return false;
       }
       fileName = found;
@@ -91,11 +97,11 @@ async function deleteTicket(fileNameOrId, logger) {
 
     const ticketPath = joinPath(ticketsDir, fileName);
     await deleteFile(ticketPath);
-    await logger.info(`Deleted ticket: ${fileName}`);
-    await recordTicketResolved(logger);
+    if (_logger) await _logger.info(`Deleted ticket: ${fileName}`);
+    await recordTicketResolved();
     return true;
   } catch (error) {
-    await logger.error(`Failed to delete ticket: ${error.message || error}`);
+    if (_logger) await _logger.error(`Failed to delete ticket: ${error.message || error}`);
     return false;
   }
 }

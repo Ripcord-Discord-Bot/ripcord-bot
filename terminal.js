@@ -45,12 +45,13 @@ function setPromptInterface(rl) {
   promptInterface = rl;
 }
 
-function shutdown(cleanup) {
-  if (typeof cleanup === 'function') {
-    Promise.resolve(cleanup()).finally(() => process.exit(0));
-  } else {
-    process.exit(0);
-  }
+// Clear the prompt line and close the readline interface before process exit
+function closeTerminal() {
+  if (!promptInterface) return;
+  readline.clearLine(process.stdout, 0);
+  readline.cursorTo(process.stdout, 0);
+  promptInterface.close();
+  promptInterface = null;
 }
 
 function setupTerminal(handleInput, logger) {
@@ -64,6 +65,9 @@ function setupTerminal(handleInput, logger) {
   setPromptInterface(rl);
   rl.prompt();
 
+  // Forward readline's SIGINT to the process-level handler in exit.js
+  rl.on('SIGINT', () => process.emit('SIGINT'));
+
   rl.on('line', async (line) => {
     const handled = await handleInput(line, logger);
     if (!handled) {
@@ -75,21 +79,9 @@ function setupTerminal(handleInput, logger) {
   return rl;
 }
 
-// Intercept Ctrl+C to prevent abrupt exit and prompt the user to use the exit command
-function setupSigintHandler() {
-  process.on('SIGINT', () => {
-    if (promptInterface && config.enableConsole) {
-      clearPrompt();
-      console.log(`${formatConsoleTag('TERMINAL', consoleColors.purple)} Use the "exit" command to exit gracefully.`);
-      promptInterface.prompt();
-    }
-  });
-}
-
 export {
   setupTerminal,
-  setupSigintHandler,
-  shutdown,
+  closeTerminal,
   terminalOutput,
   printToConsole,
   clearPrompt,

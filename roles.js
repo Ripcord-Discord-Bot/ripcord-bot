@@ -4,6 +4,7 @@ import { Events } from 'discord.js';
 import * as config from './config.js';
 import { ensureDir, loadJson, writeJson, joinPath } from './io.js';
 import { recordRoleAssigned } from './serverstats.js';
+import { findTextChannel, sendToChannel, findMember } from './interactions.js';
 
 const THUMBSUP = '👍';
 const rulesFilePath = joinPath(config.serverRulesIdPath, config.serverRulesIdFile);
@@ -33,14 +34,9 @@ async function saveRulesMessageId(id, logger) {
 }
 
 // Post rules message to the welcome channel and save its ID
-async function postRulesMessage(guild, logger) {
-  const channel = guild.channels.cache.find((ch) => ch.name === config.welcomeChannel);
-  if (!channel) {
-    if (logger) await logger.error(`Welcome channel #${config.welcomeChannel} not found`);
-    return;
-  }
-
-  const rulesMsg = await channel.send(
+async function postRulesMessage(logger) {
+  const rulesMsg = await sendToChannel(
+    config.welcomeChannel,
     '**Server Rules** 📋\n\n' +
     '1. Be respectful to all members\n' +
     '2. No spam or advertising\n' +
@@ -49,16 +45,21 @@ async function postRulesMessage(guild, logger) {
     `React with ${THUMBSUP} below to accept the rules and gain access.`
   );
 
+  if (!rulesMsg) {
+    if (logger) await logger.error(`Welcome channel #${config.welcomeChannel} not found`);
+    return;
+  }
+
   await rulesMsg.react(THUMBSUP);
   await saveRulesMessageId(rulesMsg.id, logger);
   if (logger) await logger.info(`Posted rules message in #${config.welcomeChannel} (ID: ${rulesMsg.id})`);
 }
 
 // Verify the saved rules message still exists in Discord
-async function verifyRulesMessage(guild, logger) {
+async function verifyRulesMessage(logger) {
   if (!rulesMessageId) return false;
   try {
-    const channel = guild.channels.cache.find((ch) => ch.name === config.welcomeChannel);
+    const channel = findTextChannel(config.welcomeChannel);
     if (!channel) return false;
     await channel.messages.fetch(rulesMessageId);
     return true;
@@ -75,9 +76,9 @@ export async function setupRoleEvents(client, logger) {
 
   const guild = client.guilds.cache.first();
   if (guild) {
-    const exists = await verifyRulesMessage(guild, logger);
+    const exists = await verifyRulesMessage(logger);
     if (!exists) {
-      await postRulesMessage(guild, logger);
+      await postRulesMessage(logger);
     }
   }
 
@@ -98,7 +99,9 @@ export async function setupRoleEvents(client, logger) {
       const guild = reaction.message.guild;
       if (!guild) return;
 
-      const member = await guild.members.fetch(user.id);
+      const member = await findMember(user.id);
+      if (!member) return;
+
       const trusted = guild.roles.cache.find((r) => r.name === config.trustedRole);
 
       if (!trusted) {
@@ -109,7 +112,8 @@ export async function setupRoleEvents(client, logger) {
       if (member.roles.cache.has(trusted.id)) return;
 
       await member.roles.add(trusted);
-      await recordRoleAssigned(config.trustedRole, logger);
+      if (logger) await logger.info(`Assigned "${config.trustedRole}" role to ${user.tag} (${user.id})`);
+      await recordRoleAssigned(config.trustedRole);
     } catch (error) {
       if (logger) await logger.error(`Failed to assign role to ${user.tag}: ${error.message || error}`);
     }

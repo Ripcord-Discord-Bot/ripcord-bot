@@ -6,10 +6,12 @@
   "description": "Discord bot environment",
   "main": "index.js",
   "scripts": {
-    "dev": "node index.js",
-    "start": "node index.js",
+    "dev": "node launcher.js",
+    "start": "node launcher.js",
     "setup": "node setup.js",
-    "cleanup": "node cleanup.js"
+    "cleanup": "node cleanup.js",
+    "test": "node test.js",
+    "test-snapshot": "node test.js --snapshot"
   },
   "engines": {
     "node": ">=18.0.0"

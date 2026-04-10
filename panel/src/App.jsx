@@ -6,6 +6,7 @@ import Logs from './pages/Logs'
 import Stats from './pages/Stats'
 import Tickets from './pages/Tickets'
 import Config from './pages/Config'
+import Scheduler from './pages/Scheduler'
 import { api } from './api'
 import './App.css'
 
@@ -16,6 +17,7 @@ const PAGES = {
   logs: Logs,
   tickets: Tickets,
   config: Config,
+  scheduler: Scheduler,
 }
 
 function App() {

@@ -7,12 +7,15 @@ import { setupAudit } from './audit.js';
 import { loadBannedList, isBanned } from './bannedlist.js';
 import * as commands from './commands.js';
 import * as config from './config.js';
+import { setupExit } from './exit.js';
 import { checkAndModerate, initFilter } from './filter.js';
+import { setupInteractions } from './interactions.js';
 import logger from './logger.js';
 import { setupRoleEvents } from './roles.js';
+import { startScheduler, registerSystemTask } from './scheduler.js';
 import { loadServerStats, recordMessage, recordNewUser, recordBannedUserKicked, recordUserLeft, setRoleCounts, snapshotDaily } from './serverstats.js';
-import { setupTerminal, setupSigintHandler } from './terminal.js';
-import { createTicket } from './ticket.js';
+import { setupTerminal } from './terminal.js';
+import { createTicket, setupTickets } from './ticket.js';
 
 // Verify bot token is available
 if (!config.token) {
@@ -36,56 +39,58 @@ const client = new Client({
 
 await logger.info('Starting Ripcord Bot...');
 
-// Set up terminal interface when bot is ready
+async function seedRoleCounts(guild) {
+  const members = await guild.members.fetch();
+  const counts = {};
+  for (const member of members.values()) {
+    for (const role of member.roles.cache.values()) {
+      if (role.name === '@everyone') continue;
+      counts[role.name] = (counts[role.name] || 0) + 1;
+    }
+  }
+  await setRoleCounts(counts);
+}
+
+// Bot Setup
 client.once(Events.ClientReady, async (ready) => {
   await logger.info(`Logged in as ${ready.user.tag}`);
   await loadServerStats(logger);
   await loadBannedList(logger);
-  await initFilter();
+  await initFilter(logger);
+  setupTickets(logger);
+  setupInteractions(client, logger);
   await setupRoleEvents(client, logger);
   setupAudit(client, logger);
+  setupExit(logger);
   setupTerminal(commands.handleTerminalInput, logger);
-  setupSigintHandler();
 
   // Seed role counts from live guild data on startup
   const guild = client.guilds.cache.first();
-  if (guild) {
-    const members = await guild.members.fetch();
-    const counts = {};
-    for (const member of members.values()) {
-      for (const role of member.roles.cache.values()) {
-        if (role.name === '@everyone') continue;
-        counts[role.name] = (counts[role.name] || 0) + 1;
-      }
-    }
-    await setRoleCounts(counts, logger);
-  }
+  if (guild) await seedRoleCounts(guild);
 
   await startApi(logger);
+  await startScheduler(client, logger);
 
-  // Snapshot stats at midnight — poll every minute, write when the date rolls over
-  let _snapshotDate = new Date().toISOString().slice(0, 10);
-  setInterval(async () => {
-    const today = new Date().toISOString().slice(0, 10);
-    if (today !== _snapshotDate) {
-      await snapshotDaily(_snapshotDate, logger);
-      _snapshotDate = today;
-    }
-  }, 60_000);
+  // Snapshot stats at midnight via the scheduler
+  registerSystemTask('stats-daily-snapshot', 'cron', '0 0 * * *', async () => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    await snapshotDaily(yesterday.toISOString().slice(0, 10));
+  });
 });
 
 // Handle all incoming messages
 client.on(Events.MessageCreate, async (message) => {
   // Ignore bot messages
   if (message.author.bot) return;
-  await recordMessage(logger);
+  await recordMessage();
 
   // Check message for filtered content first
-  const filtered = config.enableFiltering && (await checkAndModerate(message, logger));
+  const filtered = config.enableFiltering && (await checkAndModerate(message));
   if (filtered) return;
 
   // Create ticket if message is in issues channel
-  await createTicket(message, logger);
+  await createTicket(message);
 
   // Process user commands
   await commands.handleCommand(message, logger);
@@ -97,14 +102,14 @@ client.on(Events.GuildMemberAdd, async (member) => {
     try {
       await member.kick('User is on the banned list');
       await logger.warn(`Kicked banned user ${member.user.tag} (${member.id})`);
-      await recordBannedUserKicked(logger);
+      await recordBannedUserKicked();
     } catch (error) {
       await logger.error(`Failed to kick banned user ${member.user.tag}: ${error.message || error}`);
     }
     return;
   }
 
-  await recordNewUser(logger);
+  await recordNewUser();
 
   // DM onboarding instructions to new members
   try {
@@ -119,7 +124,7 @@ client.on(Events.GuildMemberAdd, async (member) => {
 
 // Track members leaving
 client.on(Events.GuildMemberRemove, async (member) => {
-  await recordUserLeft(logger);
+  await recordUserLeft();
 });
 
 // Connect to Discord

@@ -8,9 +8,11 @@ import { recordFilteredMessage } from './serverstats.js';
 
 const filteredWordsFile = joinPath(config.filteredWordsDir, config.filteredWordsFile);
 
+let _logger = null;
 let filteredWords = [];
 
-async function initFilter() {
+async function initFilter(logger = null) {
+  _logger = logger;
   await ensureDir(config.filteredWordsDir);
   filteredWords = await loadJson(filteredWordsFile, []);
 }
@@ -22,7 +24,7 @@ async function addFilteredWord(word) {
     try {
       await writeJson(filteredWordsFile, filteredWords);
     } catch (error) {
-      console.error('Error saving filtered words:', error);
+      if (_logger) await _logger.error(`Failed to save filtered words: ${error.message || error}`);
     }
     return true;
   }
@@ -37,7 +39,7 @@ async function removeFilteredWord(word) {
   try {
     await writeJson(filteredWordsFile, filteredWords);
   } catch (error) {
-    console.error('Error saving filtered words:', error);
+    if (_logger) await _logger.error(`Failed to save filtered words: ${error.message || error}`);
   }
   return true;
 }
@@ -54,42 +56,42 @@ function containsFilteredWord(content) {
 }
 
 // Delete a message and send a warning DM to the author
-async function deleteAndWarn(message, reason, logger) {
-  await recordFilteredMessage(logger);
+async function deleteAndWarn(message, reason) {
+  await recordFilteredMessage();
   if (message.deletable) {
     try {
       await message.delete();
-      await logger.warn(`Deleted message from ${message.author.tag} (${reason})`);
+      if (_logger) await _logger.warn(`Deleted message from ${message.author.tag} (${reason})`);
     } catch (error) {
-      await logger.error(`Failed to delete message: ${error.message || error}`);
+      if (_logger) await _logger.error(`Failed to delete message: ${error.message || error}`);
     }
   } else {
-    await logger.warn(`Message not deleted from ${message.author.tag} (${reason}): ${message.id}`);
+    if (_logger) await _logger.warn(`Message not deleted from ${message.author.tag} (${reason}): ${message.id}`);
   }
 
   try {
     await message.author.send(
       'Your message was removed because it contained restricted content. Please follow the server rules.'
     );
-    await logger.info(`Sent warning DM to ${message.author.tag}`);
+    if (_logger) await _logger.info(`Sent warning DM to ${message.author.tag}`);
   } catch (error) {
-    await logger.error(`Unable to warn user ${message.author.tag}: ${error.message || error}`);
+    if (_logger) await _logger.error(`Unable to warn user ${message.author.tag}: ${error.message || error}`);
   }
 }
 
 // Run AI check in the background without blocking the message pipeline
-function moderateWithAI(message, logger) {
-  checkWithOllama(message.content, logger)
+function moderateWithAI(message) {
+  checkWithOllama(message.content, _logger)
     .then(async (flagged) => {
-      if (flagged) await deleteAndWarn(message, 'AI detected', logger);
+      if (flagged) await deleteAndWarn(message, 'AI detected');
     })
     .catch(async (error) => {
-      await logger.error(`Background AI moderation error: ${error.message || error}`);
+      if (_logger) await _logger.error(`Background AI moderation error: ${error.message || error}`);
     });
 }
 
 // Check a message for filtered content and moderate if necessary
-async function checkAndModerate(message, logger) {
+async function checkAndModerate(message) {
   // Skip if filtering is disabled
   if (!config.enableFiltering) return false;
   // Skip if message is not in a guild (e.g., DM)
@@ -99,12 +101,12 @@ async function checkAndModerate(message, logger) {
 
   // Word list check is instant — act immediately if matched
   if (containsFilteredWord(message.content)) {
-    await deleteAndWarn(message, 'filtered', logger);
+    await deleteAndWarn(message, 'filtered');
     return true;
   }
 
   // AI check is slow — run without blocking the message pipeline
-  moderateWithAI(message, logger);
+  moderateWithAI(message);
   return false;
 }
 

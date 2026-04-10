@@ -1,0 +1,85 @@
+.scheduler-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.scheduler-form-row {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  align-items: center;
+  gap: 12px;
+}
+
+.scheduler-form-row label {
+  font-size: 13px;
+  color: var(--muted);
+  text-align: right;
+}
+
+.scheduler-form-row input,
+.scheduler-form-row select,
+.scheduler-form-row textarea {
+  width: 100%;
+}
+
+.scheduler-form-row select {
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  outline: none;
+  cursor: pointer;
+}
+
+.scheduler-form-row select:focus {
+  border-color: var(--accent);
+}
+
+.scheduler-form-row textarea {
+  resize: vertical;
+  min-height: 70px;
+}
+
+.scheduler-form-row--full {
+  align-items: flex-start;
+}
+
+.scheduler-form-row--full label {
+  padding-top: 8px;
+}
+
+.scheduler-btn-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.scheduler-btn-row label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.scheduler-btn-row .btn {
+  margin-left: auto;
+}
+
+.scheduler-form-error {
+  margin-bottom: 8px;
+}
+
+.scheduler-section-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 10px;
+  margin-top: 4px;
+}

@@ -5,9 +5,11 @@ import * as config from './config.js';
 import { prompt } from './ai.js';
 import { isFromTerminal, hasPermission } from './authentication.js';
 import { addBannedUser, removeBannedUser } from './bannedlist.js';
+import { shutdown, restart } from './exit.js';
 import { addFilteredWord, removeFilteredWord } from './filter.js';
+import { addSchedule, removeSchedule, listSchedules, enableSchedule, disableSchedule, runScheduleNow, parseInterval, stopScheduler, parseScheduleAdd } from './scheduler.js';
 import { getServerStats, recordCommandRun } from './serverstats.js';
-import { shutdown, terminalOutput } from './terminal.js';
+import { terminalOutput } from './terminal.js';
 const prefix = config.commandPrefix;
 
 function replyLongMessage(message, text) {
@@ -35,10 +37,17 @@ const commands = {
   exit: {
     description: 'Shuts down the bot from terminal.',
     terminalOnly: true,
-    execute: async ({ message, logger }) => {
-      await logger.info('Exiting...');
+    execute: async ({ message }) => {
       await message.reply('Exiting...');
-      shutdown(() => stopApi(logger));
+      await shutdown('exit command');
+    },
+  },
+  restart: {
+    description: 'Restarts the bot from terminal.',
+    terminalOnly: true,
+    execute: async ({ message }) => {
+      await message.reply('Restarting...');
+      await restart('restart command');
     },
   },
   addfilter: {
@@ -90,7 +99,7 @@ const commands = {
         return;
       }
       const results = await Promise.all(
-        command.args.map((userId) => addBannedUser(userId, logger, message.guild).then(() => userId))
+        command.args.map((userId) => addBannedUser(userId).then(() => userId))
       );
       await message.reply(`Banned ${results.length} user(s): ${results.map((id) => `\`${id}\``).join(', ')}`);
     },
@@ -105,7 +114,7 @@ const commands = {
         await message.reply(`Usage: ${prefix}unban <userId>`);
         return;
       }
-      const removed = await removeBannedUser(userId, logger);
+      const removed = await removeBannedUser(userId);
       if (removed) {
         await message.reply(`User \`${userId}\` has been removed from the banned list.`);
       } else {
@@ -181,6 +190,118 @@ const commands = {
       }
     },
   },
+  schedule: {
+    description: 'Manages scheduled tasks.',
+    permission: 'ModerateMembers',
+    usage: `${prefix}schedule <list|add|remove|enable|disable|run>`,
+    execute: async ({ message, command, logger }) => {
+      const sub = command.args[0];
+
+      // !schedule  or  !schedule list
+      if (!sub || sub === 'list') {
+        const tasks = listSchedules();
+        if (!tasks.length) {
+          await message.reply('No scheduled tasks.');
+          return;
+        }
+        const lines = tasks.map((t) =>
+          t.system
+            ? `\`${t.id}\` [system] ${t.mode} \`${t.timing}\``
+            : `\`${t.id}\` [${t.enabled ? 'on' : 'off'}] ${t.mode} \`${t.timing}\` → #${t.channelName} — last run: ${t.lastRun ?? 'never'}`
+        );
+        await replyLongMessage(message, `**Scheduled Tasks**\n${lines.join('\n')}`);
+        return;
+      }
+
+      // !schedule add <id> interval <duration> <channel> <message...>
+      // !schedule add <id> cron <m> <h> <dom> <mon> <dow> <channel> <message...>
+      if (sub === 'add') {
+        const result = parseScheduleAdd(command.args.slice(1));
+
+        if (!result.ok) {
+          if (result.reason === 'missing_id_mode') {
+            await message.reply(
+              `Usage:\n` +
+              `\`${prefix}schedule add <id> interval <duration> <channel> <message>\`\n` +
+              `\`${prefix}schedule add <id> cron <m h dom mon dow> <channel> <message>\`\n` +
+              `Duration examples: \`30s\`, \`5m\`, \`2h\`, \`1d\`, \`1w\`\n` +
+              `Cron example: \`0 9 * * 1\` (every Monday at 9:00)`
+            );
+          } else if (result.reason === 'missing_interval_args') {
+            await message.reply(`Usage: \`${prefix}schedule add <id> interval <duration> <channel> <message>\``);
+          } else if (result.reason === 'invalid_interval') {
+            await message.reply(`Invalid duration \`${result.timing}\`. Use a format like \`5m\`, \`1h\`, \`2d\`.`);
+          } else if (result.reason === 'missing_cron_args') {
+            await message.reply(`Usage: \`${prefix}schedule add <id> cron <m> <h> <dom> <mon> <dow> <channel> <message>\``);
+          } else if (result.reason === 'unknown_mode') {
+            await message.reply(`Unknown mode \`${result.mode}\`. Use \`interval\` or \`cron\`.`);
+          }
+          return;
+        }
+
+        if (listSchedules().some((t) => t.id === result.task.id)) {
+          await message.reply(`A schedule with id \`${result.task.id}\` already exists. Remove it first.`);
+          return;
+        }
+
+        await addSchedule(result.task, logger);
+        await message.reply(`Added schedule \`${result.task.id}\` (${result.task.mode}: \`${result.task.timing}\`) → #${result.task.channelName}.`);
+        return;
+      }
+
+      // !schedule remove <id>
+      if (sub === 'remove') {
+        const id = command.args[1];
+        if (!id) {
+          await message.reply(`Usage: \`${prefix}schedule remove <id>\``);
+          return;
+        }
+        const removed = await removeSchedule(id, logger);
+        await message.reply(removed ? `Removed schedule \`${id}\`.` : `No schedule found with id \`${id}\`.`);
+        return;
+      }
+
+      // !schedule enable <id>
+      if (sub === 'enable') {
+        const id = command.args[1];
+        if (!id) {
+          await message.reply(`Usage: \`${prefix}schedule enable <id>\``);
+          return;
+        }
+        const ok = await enableSchedule(id, logger);
+        await message.reply(ok ? `Enabled schedule \`${id}\`.` : `No schedule found with id \`${id}\`.`);
+        return;
+      }
+
+      // !schedule disable <id>
+      if (sub === 'disable') {
+        const id = command.args[1];
+        if (!id) {
+          await message.reply(`Usage: \`${prefix}schedule disable <id>\``);
+          return;
+        }
+        const ok = await disableSchedule(id, logger);
+        await message.reply(ok ? `Disabled schedule \`${id}\`.` : `No schedule found with id \`${id}\`.`);
+        return;
+      }
+
+      // !schedule run <id>
+      if (sub === 'run') {
+        const id = command.args[1];
+        if (!id) {
+          await message.reply(`Usage: \`${prefix}schedule run <id>\``);
+          return;
+        }
+        const ok = await runScheduleNow(id, logger);
+        await message.reply(ok ? `Triggered schedule \`${id}\`.` : `No schedule found with id \`${id}\`.`);
+        return;
+      }
+
+      await message.reply(
+        `Unknown subcommand \`${sub}\`. Use \`list\`, \`add\`, \`remove\`, \`enable\`, \`disable\`, or \`run\`.`
+      );
+    },
+  },
 };
 
 // Parse a message into a command object with name and arguments
@@ -231,7 +352,7 @@ async function handleCommand(message, logger, allowNoPrefix = false) {
 
   try {
     await commandDef.execute({ message, command, logger, isTerminal });
-    await recordCommandRun(logger);
+    await recordCommandRun();
   } catch (error) {
     await logger.error(`Error executing command ${command.name}: ${error.message || error}`);
     await message.reply('An error occurred while executing the command.');

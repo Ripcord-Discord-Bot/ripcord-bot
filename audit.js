@@ -1,29 +1,28 @@
 // Audit logger — registers Discord event listeners and logs server activity
 
 import { Events } from 'discord.js';
-import { consoleColors } from './terminal.js';
+import { consoleColors, formatConsoleTag } from './terminal.js';
 
-const { reset, green, yellow, red, cyan } = consoleColors;
-const tag = (label, color) => `${cyan}[${color}${label}${cyan}]${reset}`;
+const { green, yellow, red } = consoleColors;
 
 const T = {
-  MESSAGE:  tag('MESSAGE',  green),
-  EDIT:     tag('EDIT',     yellow),
-  DELETE:   tag('DELETE',   red),
-  JOIN:     tag('JOIN',     green),
-  LEAVE:    tag('LEAVE',    yellow),
-  'ROLE+':  tag('ROLE+',    green),
-  'ROLE-':  tag('ROLE-',    yellow),
-  'ROLE~':  tag('ROLE~',    yellow),
-  NICK:     tag('NICK',     yellow),
-  BAN:      tag('BAN',      red),
-  UNBAN:    tag('UNBAN',    green),
-  VOICE:    tag('VOICE',    green),
-  'CHANNEL+': tag('CHANNEL+', green),
-  'CHANNEL-': tag('CHANNEL-', yellow),
-  'CHANNEL~': tag('CHANNEL~', yellow),
-  'REACT+': tag('REACT+',   green),
-  'REACT-': tag('REACT-',   yellow),
+  MESSAGE:  formatConsoleTag('MESSAGE',  green),
+  EDIT:     formatConsoleTag('EDIT',     yellow),
+  DELETE:   formatConsoleTag('DELETE',   red),
+  JOIN:     formatConsoleTag('JOIN',     green),
+  LEAVE:    formatConsoleTag('LEAVE',    yellow),
+  'ROLE+':  formatConsoleTag('ROLE+',    green),
+  'ROLE-':  formatConsoleTag('ROLE-',    yellow),
+  'ROLE~':  formatConsoleTag('ROLE~',    yellow),
+  NICK:     formatConsoleTag('NICK',     yellow),
+  BAN:      formatConsoleTag('BAN',      red),
+  UNBAN:    formatConsoleTag('UNBAN',    green),
+  VOICE:    formatConsoleTag('VOICE',    green),
+  'CHANNEL+': formatConsoleTag('CHANNEL+', green),
+  'CHANNEL-': formatConsoleTag('CHANNEL-', yellow),
+  'CHANNEL~': formatConsoleTag('CHANNEL~', yellow),
+  'REACT+': formatConsoleTag('REACT+',   green),
+  'REACT-': formatConsoleTag('REACT-',   yellow),
 };
 
 export function setupAudit(client, logger) {

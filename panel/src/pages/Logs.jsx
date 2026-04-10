@@ -12,9 +12,10 @@ function todayDate() {
 function Logs() {
   const [date, setDate] = useState(todayDate())
   const [filter, setFilter] = useState('ALL')
-  const { data: lines, loading, error, refetch } = useApiData(() => api.getLogs(date), [], [date])
+  const { data, loading, error, refetch } = useApiData(() => api.getLogs(date), { total: 0, offset: 0, lines: [] }, [date])
+  const lines = data?.lines ?? []
 
-  const filtered = filter === 'ALL' ? (lines ?? []) : (lines ?? []).filter((l) => l.level === filter)
+  const filtered = filter === 'ALL' ? lines : lines.filter((l) => l.level === filter)
   const visible = [...filtered].reverse()
 
   // Poll every 5s when viewing today's log
