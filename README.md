@@ -5,22 +5,18 @@ A modular, modern Discord bot for server management, moderation, scheduling, and
 ## Features
 
 - **Web Panel** — browser-based panel for managing config, tasks, filters, the kick list, tickets, logs, and stats.
-
 - **Invite Tracking** — create, track, and manage Discord invite links from the panel. Tracked uses update in real time as invites are used.
-
 - **Message Filtering** — detects and removes filtered words. Moderators are exempt.
 - **Auto Kicker** — persistent kick list; listed users are kicked immediately when added or on join.
-- **Ban Command** — `!ban` issues a Discord ban via the API, with an optional reason and configurable message deletion window.
+- **Bot commands** — many buildin commands.
 - **Ticket System** — messages in the `issues` channel are saved as JSON tickets with an AI-suggested moderator action.
 - **Onboarding** — reaction-based onboarding; users react 👍 to the rules message to receive the `Trusted` role.
 - **Task Scheduler** — run channel messages on interval (`30s`, `5m`, `2h`, `1d`, `1w`) or cron schedules.
 - **Server Stats** — tracks messages, commands, filtered messages, tickets, kicks, user joins/leaves, tasks run, and role counts. Snapshots daily.
-- **Web Panel** — browser-based panel for managing config, tasks, filters, the kick list, tickets, logs, and stats.
 - **Terminal Interface** — interactive prompt with persistent command history for running commands at runtime.
 - **AI Integration** — optional Ollama-powered `!ask` command and ticket action suggestions.
 - **Audit Logging** — logs message edits/deletes, member joins/leaves, role changes, bans, voice events, and more.
-- **Auto-Restart** — changing config via the panel automatically restarts the bot.
-- **Server Setup** — automated channel/role creation and permission configuration.
+- **Server Setup** — automated server configuration.
 
 ## Requirements
 
@@ -43,6 +39,12 @@ A modular, modern Discord bot for server management, moderation, scheduling, and
    ```
 
    At minimum, set `DISCORD_TOKEN`.
+
+3. Open a new terminal and run Ollama:
+
+   ```bash
+   ollama serve
+   ```
 
 ## Running the Bot
 
@@ -157,7 +159,7 @@ Terminal command history is persisted across restarts (`data/terminal-history.js
 1. New member joins the server
 2. Member reads rules in `#welcome` and reacts 👍
 3. Bot awards the `Trusted` role
-4. Member can now post in `#chat`
+4. Member can now post in `#chat` and `#issues`
 
 ## Configuration
 
