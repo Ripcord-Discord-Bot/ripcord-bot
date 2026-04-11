@@ -1,0 +1,26 @@
+.stock-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.stock-chart svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+
+.stock-chart-labels {
+  position: relative;
+  height: 14px;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.stock-chart-labels span {
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}

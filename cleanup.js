@@ -1,91 +1,112 @@
-// Guild cleanup script — deletes messages, channels, roles, and categories from a Discord server
+// Cleanup — deletes bot data files and resets Discord server state
 
-import 'dotenv/config.js';
-import { Client, GatewayIntentBits, ChannelType } from 'discord.js';
 import { fileURLToPath } from 'url';
+import { Client, GatewayIntentBits } from 'discord.js';
 import * as config from './config.js';
+import logger from './logger.js';
+import {
+  setupInteractions,
+  listTextChannels,
+  listVoiceChannels,
+  listCategories,
+  listRoles,
+  clearChannel,
+  deleteChannelById,
+  deleteRoleById,
+} from './interactions.js';
+import { checkDirExists, deleteDir, joinPath, resolvePath } from './io.js';
 
-// Verify bot token is available
-const token = process.env.DISCORD_TOKEN;
-if (!token) {
-  console.error('Missing DISCORD_TOKEN in .env');
-  process.exit(1);
+// Configured dirs — deduplicated; each is deleted if it exists
+const CONFIGURED_DIRS = [...new Set([
+  resolvePath(config.logsPath),
+  resolvePath(config.filteredWordsDir),
+  resolvePath(config.schedulesPath),
+  resolvePath(config.autoKickerPath),
+  resolvePath(config.serverRulesIdPath),
+  resolvePath(config.serverStatsPath),
+  resolvePath(config.ticketDirectoryPath),
+])];
+
+export async function cleanupGuild() {
+  // --- Data directories from config ---
+  await logger.info('Cleanup: deleting configured data directories...');
+  for (const dirPath of CONFIGURED_DIRS) {
+    if (await checkDirExists(dirPath)) {
+      await deleteDir(dirPath);
+      await logger.info(`Cleanup: deleted ${dirPath}`);
+    }
+  }
+
+  // data/ is always checked last — terminal-history.json is saved there via a hardcoded path
+  const dataDir = resolvePath('data');
+  if (await checkDirExists(dataDir)) {
+    await deleteDir(dataDir);
+    await logger.info(`Cleanup: deleted ${dataDir}`);
+  }
+
+  // Snapshot all channel/category lists before modifying anything
+  const textChannels = listTextChannels();
+  const voiceChannels = listVoiceChannels();
+  const categories = listCategories();
+
+  // --- Discord: clear messages ---
+  await logger.info('Cleanup: clearing messages from all channels...');
+  for (const ch of textChannels) {
+    await clearChannel(ch.name);
+  }
+
+  // --- Discord: delete channels (except welcome) ---
+  await logger.info(`Cleanup: deleting channels (keeping #${config.welcomeChannel})...`);
+  for (const ch of [...textChannels, ...voiceChannels]) {
+    if (ch.name === config.welcomeChannel) continue;
+    await deleteChannelById(ch.id);
+  }
+
+  // --- Discord: delete categories ---
+  await logger.info('Cleanup: deleting categories...');
+  for (const cat of categories) {
+    await deleteChannelById(cat.id);
+  }
+
+  // --- Discord: delete roles ---
+  await logger.info('Cleanup: deleting roles...');
+  const roles = listRoles();
+  for (const role of roles) {
+    await deleteRoleById(role.id);
+  }
+
+  await logger.info('Cleanup: complete.');
 }
 
-// Core cleanup logic — accepts a guild object so it can be reused by setup.js
-export async function cleanupGuild(guild) {
-  console.log(`\nCleaning up server: ${guild.name}`);
-
-  const textChannels = guild.channels.cache.filter((ch) => ch.type === ChannelType.GuildText);
-
-  // Delete all messages from all channels
-  for (const [, channel] of textChannels) {
-    try {
-      let fetched;
-      while ((fetched = await channel.messages.fetch({ limit: 100 })).size > 0) {
-        await Promise.all(fetched.map((msg) => msg.delete()));
-      }
-      console.log(`✓ Deleted all messages from #${channel.name}`);
-    } catch (error) {
-      console.error(`✗ Error deleting messages from #${channel.name}: ${error.message}`);
-    }
-  }
-
-  // Delete all text channels except the welcome channel
-  for (const [, channel] of textChannels) {
-    if (channel.name !== config.welcomeChannel) {
-      try {
-        await channel.delete();
-        console.log(`✓ Deleted #${channel.name} channel`);
-      } catch (error) {
-        console.error(`✗ Error deleting #${channel.name}: ${error.message}`);
-      }
-    }
-  }
-
-  // Delete all voice channels
-  const voiceChannels = guild.channels.cache.filter((ch) => ch.type === ChannelType.GuildVoice);
-  for (const [, channel] of voiceChannels) {
-    try {
-      await channel.delete();
-      console.log(`✓ Deleted 🔊 ${channel.name} voice channel`);
-    } catch (error) {
-      console.error(`✗ Error deleting 🔊 ${channel.name}: ${error.message}`);
-    }
-  }
-
-  console.log('\n✓ Cleanup complete!\n');
-}
-
-// Main cleanup function — standalone runner
-async function cleanupServer() {
+// Standalone entry point — run directly with: node cleanup.js
+const isMain = process.argv[1] === fileURLToPath(import.meta.url);
+if (isMain) {
   const client = new Client({
-    intents: [
-      GatewayIntentBits.Guilds,
-      GatewayIntentBits.GuildMessages,
-      GatewayIntentBits.DirectMessages,
-    ],
+    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages],
   });
 
-  client.once('clientReady', async () => {
-    try {
-      const guild = client.guilds.cache.first();
-      if (!guild) {
-        console.error('No guild found. Make sure the bot is in a server.');
-        process.exit(1);
-      }
-      await cleanupGuild(guild);
-      process.exit(0);
-    } catch (error) {
-      console.error('Cleanup error:', error.message || error);
+  client.once('ready', async () => {
+    await logger.info(`Cleanup: connected as ${client.user.tag}`);
+    setupInteractions(client, logger);
+
+    if (!client.guilds.cache.first()) {
+      await logger.error('Cleanup: no guild found');
+      client.destroy();
       process.exit(1);
     }
+
+    try {
+      await cleanupGuild();
+    } catch (error) {
+      await logger.error(`Cleanup: unexpected error: ${error.message || error}`);
+    }
+
+    client.destroy();
+    process.exit(0);
   });
 
-  client.login(token);
-}
-
-// Only run as standalone script, not when imported as a module
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  cleanupServer();
+  client.login(config.token).catch(async (err) => {
+    await logger.error(`Cleanup: login failed: ${err.message || err}`);
+    process.exit(1);
+  });
 }

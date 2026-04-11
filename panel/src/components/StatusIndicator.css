@@ -1,4 +1,4 @@
-.api-status {
+.status-indicator {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -12,27 +12,27 @@
 }
 
 /* Online */
-.api-status--online {
+.status-indicator--online {
   color: #4ade80;
   background: rgba(74, 222, 128, 0.1);
   border-color: rgba(74, 222, 128, 0.25);
 }
 
 /* Offline */
-.api-status--offline {
+.status-indicator--offline {
   color: #f87171;
   background: rgba(248, 113, 113, 0.1);
   border-color: rgba(248, 113, 113, 0.25);
 }
 
 /* Connecting */
-.api-status--connecting {
+.status-indicator--connecting {
   color: var(--muted);
   background: rgba(100, 116, 139, 0.1);
   border-color: rgba(100, 116, 139, 0.2);
 }
 
-.api-status__dot {
+.status-indicator__dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -40,12 +40,12 @@
   background: currentColor;
 }
 
-.api-status--online .api-status__dot {
+.status-indicator--online .status-indicator__dot {
   box-shadow: 0 0 6px currentColor;
   animation: glow-pulse 2.5s ease-in-out infinite;
 }
 
-.api-status--connecting .api-status__dot {
+.status-indicator--connecting .status-indicator__dot {
   animation: fade-pulse 1.4s ease-in-out infinite;
 }
 

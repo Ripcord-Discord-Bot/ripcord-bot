@@ -1,0 +1,27 @@
+.invite-form .row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.invite-form input {
+  flex: 1 1 180px;
+  min-width: 120px;
+  max-width: 240px;
+}
+
+.invite-form button {
+  flex: 0 0 auto;
+  min-width: 80px;
+}
+
+@media (max-width: 600px) {
+  .invite-form .row {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .invite-form input, .invite-form button {
+    max-width: 100%;
+    width: 100%;
+  }
+}

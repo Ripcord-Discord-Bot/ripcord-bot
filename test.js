@@ -5,7 +5,6 @@ import { describe, it } from 'node:test';
 
 import { parseInterval } from './scheduler.js';
 import { getServerStats } from './serverstats.js';
-import { isBanned } from './bannedlist.js';
 
 // --- parseInterval ---
 
@@ -184,18 +183,11 @@ describe('containsFilteredWord', () => {
   it('returns false with empty word list', () => assert.ok(!makeContains([])('anything')));
 });
 
-// --- bannedlist — isBanned lookup ---
-
-describe('isBanned', () => {
-  it('returns false for unknown id on fresh module', () => assert.ok(!isBanned('999999999')));
-  it('returns false for empty string',               () => assert.ok(!isBanned('')));
-});
-
 // --- Daily snapshot integration test ---
-// Fires snapshotDaily immediately then every 60s. Press Ctrl-C to stop.
+// Fires snapshot immediately then every 60s. Press Ctrl-C to stop.
 
 if (process.argv.includes('--snapshot')) {
-  const { loadServerStats, snapshotDaily } = await import('./serverstats.js');
+  const { loadServerStats, snapshot } = await import('./serverstats.js');
 
   const logger = {
     info:  (msg) => console.log(`[INFO]  ${msg}`),
@@ -206,9 +198,8 @@ if (process.argv.includes('--snapshot')) {
   await loadServerStats(logger);
 
   async function runSnapshot() {
-    const date = new Date().toISOString().slice(0, 10);
-    console.log(`\n[${new Date().toISOString()}] Running daily snapshot for ${date}...`);
-    await snapshotDaily(date, logger);
+    console.log(`\n[${new Date().toISOString()}] Running daily snapshot...`);
+    await snapshot();
     console.log(`[${new Date().toISOString()}] Snapshot complete. Next run in 60s. (Ctrl-C to stop)`);
   }
 

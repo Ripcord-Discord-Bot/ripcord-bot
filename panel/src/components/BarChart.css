@@ -1,0 +1,26 @@
+.bar-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.bar-chart svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+
+.bar-chart-labels {
+  position: relative;
+  height: 14px;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.bar-chart-labels span {
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}

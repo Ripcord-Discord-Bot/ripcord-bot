@@ -1,8 +1,7 @@
 // Ticket system — creates and persists support tickets from Discord messages
 
 import { randomUUID } from 'crypto';
-import { readdir } from 'fs/promises';
-import { ensureDir, writeJson, joinPath, deleteFile, readJson } from './io.js';
+import { ensureDir, writeJson, joinPath, deleteFile, readJson, readDir } from './io.js';
 import * as config from './config.js';
 import { isFromChannel } from './authentication.js';
 import { suggestTicketAction } from './ai.js';
@@ -81,7 +80,7 @@ async function deleteTicket(fileNameOrId) {
     let fileName = fileNameOrId;
 
     if (!fileNameOrId.endsWith('.json')) {
-      const files = await readdir(ticketsDir);
+      const files = await readDir(ticketsDir);
       let found = null;
       for (const f of files) {
         if (!f.endsWith('.json')) continue;
@@ -103,6 +102,22 @@ async function deleteTicket(fileNameOrId) {
   } catch (error) {
     if (_logger) await _logger.error(`Failed to delete ticket: ${error.message || error}`);
     return false;
+  }
+}
+
+export async function listTickets() {
+  try {
+    await ensureDir(ticketsDir);
+    const files = await readDir(ticketsDir);
+    const tickets = await Promise.all(
+      files
+        .filter((f) => f.endsWith('.json'))
+        .sort((a, b) => b.localeCompare(a))
+        .map(async (f) => ({ file: f, ...await readJson(joinPath(ticketsDir, f)) }))
+    );
+    return tickets;
+  } catch {
+    return [];
   }
 }
 

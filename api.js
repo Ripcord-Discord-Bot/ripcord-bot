@@ -1,31 +1,23 @@
 // API server — exposes bot data over HTTP for the panel
 
 import { createServer } from 'http';
-import * as fsp from 'fs/promises';
 import * as config from './config.js';
 import { restart } from './exit.js';
-import { ensureDir, loadJson, writeJson, joinPath, resolvePath } from './io.js';
-import { listTextChannels, listVoiceChannels } from './interactions.js';
-import { deleteTicket } from './ticket.js';
-import { listSchedules, addSchedule, removeSchedule, enableSchedule, disableSchedule, runScheduleNow, parseInterval } from './scheduler.js';
+import { addKickedUser, removeKickedUser, isKicked, getKickedUsers } from './kickedusers.js';
+import { addBannedUser, removeBannedUser, isBanned, getBannedUsers } from './bannedusers.js';
+import { addFilteredWord, removeFilteredWord, getFilteredWords } from './filter.js';
+import { listTextChannels, listVoiceChannels, listCategories } from './interactions.js';
+import { getInvites, createInvite, deleteInvite } from './invites.js';
+import { readLogs } from './logger.js';
+import { listTasks, addTask, removeTask, enableTask, disableTask, runTaskNow, parseInterval } from './scheduler.js';
+import { getServerStats, getStatsHistory } from './serverstats.js';
+import { listTickets, deleteTicket } from './ticket.js';
 
 const PORT = process.env.API_PORT || 3001;
 const PANEL_ORIGIN = process.env.PANEL_ORIGIN || 'http://localhost:5173';
 const API_TOKEN = process.env.API_TOKEN || null;
 
 let _logger = null;
-
-const paths = {
-  bannedList:    joinPath(config.bannedListPath,    config.bannedListFile),
-  filteredWords: joinPath(config.filteredWordsDir,  config.filteredWordsFile),
-  serverStats:   joinPath(config.serverStatsPath,   config.serverStatsFile),
-};
-
-async function ensureDirs() {
-  await ensureDir(config.bannedListPath);
-  await ensureDir(config.filteredWordsDir);
-  await ensureDir(config.serverStatsPath);
-}
 
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', PANEL_ORIGIN);
@@ -68,24 +60,8 @@ const CONFIG_FIELDS = {
   enableFiltering:  'ENABLE_FILTERING',
   ollamaModel:      'OLLAMA_MODEL',
   enableTickets:    'ENABLE_TICKETS',
+  enableOnboarding: 'ENABLE_ONBOARDING',
 };
-
-const ENV_PATH = resolvePath(joinPath(process.cwd(), '.env'));
-
-async function readEnvFile() {
-  try { return await fsp.readFile(ENV_PATH, 'utf8'); }
-  catch { return ''; }
-}
-
-async function writeEnvFields(updates) {
-  let src = await readEnvFile();
-  for (const [key, value] of Object.entries(updates)) {
-    const line = `${key}=${value}`;
-    const re = new RegExp(`^${key}=.*$`, 'm');
-    src = re.test(src) ? src.replace(re, line) : src + (src.endsWith('\n') || src === '' ? '' : '\n') + line + '\n';
-  }
-  await fsp.writeFile(ENV_PATH, src, 'utf8');
-}
 
 async function handleRequest(req, res) {
   setCors(res);
@@ -107,37 +83,19 @@ async function handleRequest(req, res) {
   try {
     // GET /stats
     if (route === '/stats' && method === 'GET') {
-      const stats = await loadJson(paths.serverStats, { messages: 0, newUsers: 0 });
-      return json(res, 200, stats);
+      return json(res, 200, getServerStats());
     }
 
     // GET /stats/history?days=N  (default 30, max 365)
     if (route === '/stats/history' && method === 'GET') {
       const daysParam = parseInt(url.searchParams.get('days') ?? '30', 10);
-      const days = Number.isFinite(daysParam) && daysParam > 0 ? Math.min(daysParam, 365) : 30;
-      const historyDir = resolvePath(joinPath(config.serverStatsPath, 'stats-history'));
-      try {
-        const files = await fsp.readdir(historyDir);
-        const snapshots = await Promise.all(
-          files
-            .filter((f) => /^\d{4}-\d{2}-\d{2}\.json$/.test(f))
-            .sort()
-            .slice(-days)
-            .map(async (f) => {
-              const data = await fsp.readFile(joinPath(historyDir, f), 'utf8');
-              return JSON.parse(data);
-            })
-        );
-        return json(res, 200, snapshots);
-      } catch {
-        return json(res, 200, []);
-      }
+      const days = Number.isFinite(daysParam) && daysParam > 0 ? daysParam : 30;
+      return json(res, 200, await getStatsHistory(days));
     }
 
     // GET /filter
     if (route === '/filter' && method === 'GET') {
-      const words = await loadJson(paths.filteredWords, []);
-      return json(res, 200, words);
+      return json(res, 200, getFilteredWords());
     }
 
     // POST /filter  { word: string }
@@ -146,10 +104,8 @@ async function handleRequest(req, res) {
       if (!word || typeof word !== 'string') return json(res, 400, { error: 'Missing word' });
       if (word.length > 200) return json(res, 400, { error: 'Word exceeds maximum length of 200' });
       const normalized = word.toLowerCase().trim();
-      const words = await loadJson(paths.filteredWords, []);
-      if (words.includes(normalized)) return json(res, 409, { error: 'Word already exists' });
-      words.push(normalized);
-      await writeJson(paths.filteredWords, words);
+      const added = await addFilteredWord(normalized);
+      if (!added) return json(res, 409, { error: 'Word already exists' });
       if (_logger) await _logger.info(`API: added filtered word "${normalized}"`);
       return json(res, 201, { word: normalized });
     }
@@ -157,32 +113,15 @@ async function handleRequest(req, res) {
     // DELETE /filter/:word
     if (route.startsWith('/filter/') && method === 'DELETE') {
       const word = decodeURIComponent(route.slice('/filter/'.length)).toLowerCase().trim();
-      const words = await loadJson(paths.filteredWords, []);
-      const next = words.filter((w) => w !== word);
-      if (next.length === words.length) return json(res, 404, { error: 'Word not found' });
-      await writeJson(paths.filteredWords, next);
+      const removed = await removeFilteredWord(word);
+      if (!removed) return json(res, 404, { error: 'Word not found' });
       if (_logger) await _logger.info(`API: removed filtered word "${word}"`);
       return json(res, 200, { word });
     }
 
     // GET /tickets
     if (route === '/tickets' && method === 'GET') {
-      try {
-        const dir = resolvePath(config.ticketDirectoryPath);
-        const files = await fsp.readdir(dir);
-        const tickets = await Promise.all(
-          files
-            .filter((f) => f.endsWith('.json'))
-            .sort((a, b) => b.localeCompare(a))
-            .map(async (f) => {
-              const data = await fsp.readFile(joinPath(dir, f), 'utf8');
-              return { file: f, ...JSON.parse(data) };
-            })
-        );
-        return json(res, 200, tickets);
-      } catch {
-        return json(res, 200, []);
-      }
+      return json(res, 200, await listTickets());
     }
 
     // DELETE /tickets/:id
@@ -203,49 +142,56 @@ async function handleRequest(req, res) {
       const offsetParam = parseInt(url.searchParams.get('offset') ?? '0', 10);
       const limit  = Number.isFinite(limitParam)  && limitParam  > 0 ? limitParam  : 0;
       const offset = Number.isFinite(offsetParam) && offsetParam > 0 ? offsetParam : 0;
-      const logPath = resolvePath(joinPath(config.logsPath, `${date}.log`));
-      try {
-        const raw = await fsp.readFile(logPath, 'utf8');
-        let lines = raw.trim().split('\n').filter(Boolean).map((line) => {
-          const m = line.match(/^\[(.+?)\] \[(.+?)\] (.+)$/);
-          return m ? { timestamp: m[1], level: m[2], message: m[3] } : { timestamp: '', level: 'INFO', message: line };
-        });
-        const total = lines.length;
-        if (offset) lines = lines.slice(offset);
-        if (limit)  lines = lines.slice(0, limit);
-        return json(res, 200, { total, offset, lines });
-      } catch {
-        return json(res, 200, { total: 0, offset: 0, lines: [] });
-      }
+      return json(res, 200, await readLogs(date, limit, offset));
     }
 
-    // GET /banned
-    if (route === '/banned' && method === 'GET') {
-      const ids = await loadJson(paths.bannedList, []);
-      return json(res, 200, ids);
+    // GET /autokicker
+    if (route === '/autokicker' && method === 'GET') {
+      return json(res, 200, getKickedUsers());
     }
 
-    // POST /banned  { userId: string }
-    if (route === '/banned' && method === 'POST') {
+    // POST /autokicker  { userId: string }
+    if (route === '/autokicker' && method === 'POST') {
       const { userId } = await readBody(req);
       if (!userId || typeof userId !== 'string') return json(res, 400, { error: 'Missing userId' });
       if (userId.length > 50) return json(res, 400, { error: 'userId exceeds maximum length of 50' });
-      const ids = await loadJson(paths.bannedList, []);
-      if (ids.includes(userId)) return json(res, 409, { error: 'User already banned' });
-      ids.push(userId);
-      await writeJson(paths.bannedList, ids);
-      if (_logger) await _logger.info(`API: added ${userId} to banned list`);
+      if (isKicked(userId)) return json(res, 409, { error: 'User already in kick list' });
+      await addKickedUser(userId);
+      if (_logger) await _logger.info(`API: added ${userId} to kick list`);
       return json(res, 201, { userId });
     }
 
-    // DELETE /banned/:userId
-    if (route.startsWith('/banned/') && method === 'DELETE') {
-      const userId = decodeURIComponent(route.slice('/banned/'.length)).trim();
-      const ids = await loadJson(paths.bannedList, []);
-      const next = ids.filter((id) => id !== userId);
-      if (next.length === ids.length) return json(res, 404, { error: 'User not found' });
-      await writeJson(paths.bannedList, next);
-      if (_logger) await _logger.info(`API: removed ${userId} from banned list`);
+    // DELETE /autokicker/:userId
+    if (route.startsWith('/autokicker/') && method === 'DELETE') {
+      const userId = decodeURIComponent(route.slice('/autokicker/'.length)).trim();
+      const removed = await removeKickedUser(userId);
+      if (!removed) return json(res, 404, { error: 'User not found' });
+      if (_logger) await _logger.info(`API: removed ${userId} from kick list`);
+      return json(res, 200, { userId });
+    }
+
+    // GET /bannedusers
+    if (route === '/bannedusers' && method === 'GET') {
+      return json(res, 200, getBannedUsers());
+    }
+
+    // POST /bannedusers  { userId: string }
+    if (route === '/bannedusers' && method === 'POST') {
+      const { userId } = await readBody(req);
+      if (!userId || typeof userId !== 'string') return json(res, 400, { error: 'Missing userId' });
+      if (userId.length > 50) return json(res, 400, { error: 'userId exceeds maximum length of 50' });
+      if (isBanned(userId)) return json(res, 409, { error: 'User already in ban list' });
+      await addBannedUser(userId);
+      if (_logger) await _logger.info(`API: added ${userId} to ban list`);
+      return json(res, 201, { userId });
+    }
+
+    // DELETE /bannedusers/:userId
+    if (route.startsWith('/bannedusers/') && method === 'DELETE') {
+      const userId = decodeURIComponent(route.slice('/bannedusers/'.length)).trim();
+      const removed = await removeBannedUser(userId);
+      if (!removed) return json(res, 404, { error: 'User not found' });
+      if (_logger) await _logger.info(`API: removed ${userId} from ban list`);
       return json(res, 200, { userId });
     }
 
@@ -268,7 +214,7 @@ async function handleRequest(req, res) {
       const updates = Object.fromEntries(
         Object.entries(fields).map(([field, value]) => [CONFIG_FIELDS[field], String(value)])
       );
-      await writeEnvFields(updates);
+      await config.writeEnvFields(updates);
       if (_logger) await _logger.info(`API: updated config fields: ${Object.keys(fields).join(', ')}`);
       json(res, 200, { restart: true });
       setImmediate(() => restart('config updated via panel'));
@@ -277,7 +223,7 @@ async function handleRequest(req, res) {
 
     // GET /schedules
     if (route === '/schedules' && method === 'GET') {
-      return json(res, 200, listSchedules());
+      return json(res, 200, listTasks());
     }
 
     // POST /schedules  { id, mode, timing, channelName, payload, enabled }
@@ -292,9 +238,9 @@ async function handleRequest(req, res) {
       if (!channelName || typeof channelName !== 'string') return json(res, 400, { error: 'Missing channelName' });
       if (!payload || typeof payload !== 'string') return json(res, 400, { error: 'Missing payload' });
       if (payload.length > 2000) return json(res, 400, { error: 'payload exceeds 2000 characters' });
-      if (listSchedules().some((t) => t.id === id)) return json(res, 409, { error: 'Schedule id already exists' });
+      if (listTasks().some((t) => t.id === id)) return json(res, 409, { error: 'Schedule id already exists' });
       const task = { id, mode, timing, channelName, payload, enabled: Boolean(enabled), lastRun: null };
-      await addSchedule(task, _logger);
+      await addTask(task, _logger);
       return json(res, 201, task);
     }
 
@@ -302,7 +248,7 @@ async function handleRequest(req, res) {
     if (route.startsWith('/schedules/') && !route.slice('/schedules/'.length).includes('/') && method === 'DELETE') {
       const id = decodeURIComponent(route.slice('/schedules/'.length));
       if (!id) return json(res, 400, { error: 'Missing id' });
-      const ok = await removeSchedule(id, _logger);
+      const ok = await removeTask(id, _logger);
       if (!ok) return json(res, 404, { error: 'Schedule not found' });
       res.writeHead(204); res.end();
       return;
@@ -311,7 +257,7 @@ async function handleRequest(req, res) {
     // POST /schedules/:id/enable
     if (route.match(/^\/schedules\/[^/]+\/enable$/) && method === 'POST') {
       const id = decodeURIComponent(route.split('/')[2]);
-      const ok = await enableSchedule(id, _logger);
+      const ok = await enableTask(id, _logger);
       if (!ok) return json(res, 404, { error: 'Schedule not found' });
       return json(res, 200, { id, enabled: true });
     }
@@ -319,7 +265,7 @@ async function handleRequest(req, res) {
     // POST /schedules/:id/disable
     if (route.match(/^\/schedules\/[^/]+\/disable$/) && method === 'POST') {
       const id = decodeURIComponent(route.split('/')[2]);
-      const ok = await disableSchedule(id, _logger);
+      const ok = await disableTask(id, _logger);
       if (!ok) return json(res, 404, { error: 'Schedule not found' });
       return json(res, 200, { id, enabled: false });
     }
@@ -327,7 +273,7 @@ async function handleRequest(req, res) {
     // POST /schedules/:id/run
     if (route.match(/^\/schedules\/[^/]+\/run$/) && method === 'POST') {
       const id = decodeURIComponent(route.split('/')[2]);
-      const ok = await runScheduleNow(id, _logger);
+      const ok = await runTaskNow(id, _logger);
       if (!ok) return json(res, 404, { error: 'Schedule not found' });
       return json(res, 200, { id, triggered: true });
     }
@@ -337,7 +283,37 @@ async function handleRequest(req, res) {
       return json(res, 200, {
         text: listTextChannels(),
         voice: listVoiceChannels(),
+        categories: listCategories(),
       });
+    }
+
+    // GET /invites
+    if (route === '/invites' && method === 'GET') {
+      return json(res, 200, getInvites());
+    }
+
+    // POST /invites { channelId, maxUses, maxAge, reason }
+    if (route === '/invites' && method === 'POST') {
+      const body = await readBody(req);
+      try {
+        const invite = await createInvite(body || {});
+        if (_logger) await _logger.info(`API: created invite ${invite.code} for channel ${invite.channelId}`);
+        return json(res, 201, invite);
+      } catch (error) {
+        return json(res, 400, { error: error.message || 'Failed to create invite' });
+      }
+    }
+
+    // DELETE /invites/:code
+    if (route.startsWith('/invites/') && method === 'DELETE') {
+      const code = decodeURIComponent(route.slice('/invites/'.length)).trim();
+      try {
+        await deleteInvite(code);
+        if (_logger) await _logger.info(`API: deleted invite ${code}`);
+        return res.writeHead(204).end();
+      } catch (error) {
+        return json(res, 400, { error: error.message || 'Failed to delete invite' });
+      }
     }
 
     json(res, 404, { error: 'Not found' });
@@ -348,9 +324,8 @@ async function handleRequest(req, res) {
 
 let server = null;
 
-export async function startApi(logger) {
+export async function setupApi(logger) {
   _logger = logger;
-  await ensureDirs();
   if (!API_TOKEN && logger) await logger.warn('API_TOKEN is not set — all API endpoints are unauthenticated');
   server = createServer(handleRequest);
   server.requestTimeout = 10_000;

@@ -123,7 +123,7 @@ function checkCronSchedules() {
 
 // --- Public API ---
 
-async function startScheduler(client, logger) {
+async function setupScheduler(client, logger) {
   _client = client;
   _logger = logger;
   const loaded = await loadJson(_schedulesFilePath, []);
@@ -157,39 +157,44 @@ function stopScheduler() {
 // Register a code-level system task (callback, not persisted, not user-manageable)
 // mode: 'cron' | 'interval'   timing: cron expr or duration string
 function registerSystemTask(id, mode, timing, fn) {
+  const task = { timing, mode, fn, _lastCronKey: null, lastRun: null };
+  const wrapped = () => {
+    task.lastRun = new Date().toISOString();
+    return Promise.resolve(fn()).catch((err) =>
+      _logger.error(`Scheduler: system task "${id}" failed: ${err.message || err}`)
+    );
+  };
   if (mode === 'interval') {
     const ms = parseInterval(timing);
     if (!ms) throw new Error(`Invalid interval timing "${timing}" for system task "${id}"`);
-    const handle = setInterval(() =>
-      Promise.resolve(fn()).catch((err) =>
-        _logger.error(`Scheduler: system task "${id}" failed: ${err.message || err}`)
-      ), ms
-    );
+    const handle = setInterval(wrapped, ms);
     _timers.set(id, handle);
   }
-  _systemTasks.set(id, { timing, mode, fn, _lastCronKey: null });
+  task.fn = wrapped;
+  _systemTasks.set(id, task);
 }
 
-function listSchedules() {
+function listTasks() {
   const userTasks = [..._schedules.values()].map(({ _lastCronKey, ...rest }) => rest);
-  const systemTasks = [..._systemTasks.entries()].map(([id, { timing, mode }]) => ({
+  const systemTasks = [..._systemTasks.entries()].map(([id, { timing, mode, lastRun }]) => ({
     id,
     mode,
     timing,
     enabled: true,
     system: true,
+    lastRun: lastRun ?? null,
   }));
   return [...userTasks, ...systemTasks];
 }
 
-async function addSchedule(task, logger) {
+async function addTask(task, logger) {
   _schedules.set(task.id, task);
   if (task.enabled && task.mode === 'interval') startTimer(task);
   await persistSchedules();
   await logger.info(`Scheduler: added task "${task.id}"`);
 }
 
-async function removeSchedule(id, logger) {
+async function removeTask(id, logger) {
   if (!_schedules.has(id)) return false;
   stopTimer(id);
   _schedules.delete(id);
@@ -198,7 +203,7 @@ async function removeSchedule(id, logger) {
   return true;
 }
 
-async function enableSchedule(id, logger) {
+async function enableTask(id, logger) {
   const task = _schedules.get(id);
   if (!task) return false;
   task.enabled = true;
@@ -208,7 +213,7 @@ async function enableSchedule(id, logger) {
   return true;
 }
 
-async function disableSchedule(id, logger) {
+async function disableTask(id, logger) {
   const task = _schedules.get(id);
   if (!task) return false;
   task.enabled = false;
@@ -218,7 +223,7 @@ async function disableSchedule(id, logger) {
   return true;
 }
 
-async function runScheduleNow(id, logger) {
+async function runTaskNow(id, logger) {
   const sys = _systemTasks.get(id);
   if (sys) {
     await Promise.resolve(sys.fn()).catch((err) =>
@@ -235,7 +240,7 @@ async function runScheduleNow(id, logger) {
 // Parse args for `schedule add` from a command argument list (post-subcommand).
 // args: [id, mode, ...rest]
 // Returns { ok: true, task } or { ok: false, reason, ...context }
-function parseScheduleAdd(args) {
+function parseTaskAdd(args) {
   const id = args[0];
   const mode = args[1];
 
@@ -274,15 +279,15 @@ function parseScheduleAdd(args) {
 }
 
 export {
-  startScheduler,
+  setupScheduler,
   stopScheduler,
   registerSystemTask,
-  listSchedules,
-  addSchedule,
-  removeSchedule,
-  enableSchedule,
-  disableSchedule,
-  runScheduleNow,
+  listTasks,
+  addTask,
+  removeTask,
+  enableTask,
+  disableTask,
+  runTaskNow,
   parseInterval,
-  parseScheduleAdd,
+  parseTaskAdd,
 };

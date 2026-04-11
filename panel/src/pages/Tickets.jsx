@@ -7,7 +7,7 @@ import TicketCard from '../components/TicketCard'
 function Tickets({ onTicketDeleted }) {
   const { data: tickets, setData: setTickets, loading, error, refetch } = useApiData(api.getTickets, [])
 
-  usePoll(refetch, 5000, [refetch])
+  usePoll(refetch, 5000)
 
   async function deleteConfirmed(t) {
     try {

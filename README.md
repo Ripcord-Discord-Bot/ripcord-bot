@@ -5,13 +5,14 @@ A modular, modern Discord bot for server management, moderation, scheduling, and
 ## Features
 
 - **Message Filtering** — detects and removes filtered words. Moderators are exempt.
-- **Banned User List** — persistent ban list; banned users are kicked immediately or on join.
+- **Auto Kicker** — persistent kick list; listed users are kicked immediately when added or on join.
+- **Ban Command** — `!ban` issues a Discord ban via the API, with an optional reason and configurable message deletion window.
 - **Ticket System** — messages in the `issues` channel are saved as JSON tickets with an AI-suggested moderator action.
-- **Role Management** — reaction-based onboarding; users react 👍 to the rules message to receive the `Trusted` role.
+- **Onboarding** — reaction-based onboarding; users react 👍 to the rules message to receive the `Trusted` role.
 - **Scheduler** — run channel messages on interval (`30s`, `5m`, `2h`, `1d`, `1w`) or cron schedules.
-- **Server Stats** — tracks messages, commands, filtered messages, tickets, bans, user joins/leaves, tasks run, and role counts. Snapshots daily.
-- **Web Panel** — browser-based panel for managing config, schedules, filters, bans, tickets, logs, and stats.
-- **Terminal Interface** — interactive prompt for running commands at runtime.
+- **Server Stats** — tracks messages, commands, filtered messages, tickets, kicks, user joins/leaves, tasks run, and role counts. Snapshots daily.
+- **Web Panel** — browser-based panel for managing config, schedules, filters, the kick list, tickets, logs, and stats.
+- **Terminal Interface** — interactive prompt with persistent command history for running commands at runtime.
 - **AI Integration** — optional Ollama-powered `!ask` command and ticket action suggestions.
 - **Audit Logging** — logs message edits/deletes, member joins/leaves, role changes, bans, voice events, and more.
 - **Auto-Restart** — changing config via the panel automatically restarts the bot.
@@ -105,12 +106,13 @@ Use the `!` prefix in Discord or no prefix in the terminal.
 
 ### Moderation
 
-| Command                | Description                               | Permission      |
-| ---------------------- | ----------------------------------------- | --------------- |
-| `!addfilter <word>`    | Adds a word to the filter list            | Moderators only |
-| `!removefilter <word>` | Removes a word from the filter list       | Moderators only |
-| `!ban <userId> [...]`  | Adds one or more users to the banned list | Moderators only |
-| `!unban <userId>`      | Removes a user from the banned list       | Moderators only |
+| Command                                | Description                                    | Permission        |
+| -------------------------------------- | ---------------------------------------------- | ----------------- |
+| `!addfilter <word>`                    | Adds a word to the filter list                 | Moderators only   |
+| `!removefilter <word>`                 | Removes a word from the filter list            | Moderators only   |
+| `!kick <userId> [...]`                 | Adds one or more users to the auto-kicker list | Moderators only   |
+| `!unkick <userId>`                     | Removes a user from the auto-kicker list       | Moderators only   |
+| `!ban <userId> [...] [reason: <text>]` | Issues a Discord ban (optionally with reason)  | `BanMembers` perm |
 
 ### Scheduler
 
@@ -138,10 +140,12 @@ Cron example: `0 9 * * 1` (every Monday at 09:00)
 
 ```
 ripcord > addfilter badword
-ripcord > ban 214898255698460673
+ripcord > kick 214898255698460673
 ripcord > schedule list
 ripcord > restart
 ```
+
+Terminal command history is persisted across restarts (`data/terminal-history.json`, max 200 entries). Use the up/down arrow keys to navigate previous commands.
 
 ## Onboarding Flow
 
@@ -177,8 +181,8 @@ All configuration is environment-based. Edit `.env`:
 | `SERVER_STATS_FILE`     | Server stats filename                | `server-stats.json`     |
 | `SERVER_RULES_ID_PATH`  | Directory for rules message ID file  | `data`                  |
 | `SERVER_RULES_ID_FILE`  | Rules message ID filename            | `server-rules-id.json`  |
-| `BANNED_LIST_PATH`      | Directory for banned list file       | `data`                  |
-| `BANNED_LIST_FILE`      | Banned list filename                 | `bannedlist.json`       |
+| `AUTO_KICKER_PATH`      | Directory for auto-kicker list file  | `data`                  |
+| `AUTO_KICKER_FILE`      | Auto-kicker list filename            | `autokicker.json`       |
 | `SCHEDULES_PATH`        | Directory for schedules file         | `data`                  |
 | `SCHEDULES_FILE`        | Schedules filename                   | `schedules.json`        |
 | `API_PORT`              | Port for the bot's HTTP API          | `3001`                  |

@@ -5,30 +5,30 @@ import PageHeader from '../components/PageHeader'
 import InputCard from '../components/InputCard'
 import ListCard from '../components/ListCard'
 
-function Filter() {
+function BannedUsers() {
   const { items, loading, error, addItem, removeItem, refetch } = useListPage({
-    fetchFn:   api.getFilter,
-    addFn:     api.addFilter,
-    removeFn:  api.removeFilter,
-    normalize: (v) => v.toLowerCase(),
+    fetchFn:  api.getBanList,
+    addFn:    api.addToBanList,
+    removeFn: api.removeFromBanList,
   })
 
-  // Poll every 5 seconds to auto-refresh the list
   usePoll(refetch, 5000)
 
   return (
     <>
-      <PageHeader title="Word Filter" error={error} />
-      <InputCard title="Add Word" placeholder="Enter word..." onSubmit={addItem} />
+      <PageHeader title="Banned Users" error={error} />
+      <InputCard title="Add User ID" placeholder="Discord user ID..." buttonLabel="Ban" onSubmit={addItem} />
       <ListCard
-        title="Filtered Words"
+        title="Ban List"
         items={items}
         loading={loading}
-        emptyMessage="No filtered words."
+        emptyMessage="No users in ban list."
         onRemove={removeItem}
+        removeLabel="Unban"
+        confirmLabel="Confirm?"
       />
     </>
   )
 }
 
-export default Filter
+export default BannedUsers

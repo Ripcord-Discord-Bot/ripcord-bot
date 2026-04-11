@@ -1,4 +1,4 @@
-.cfg-toggle {
+.toggle {
   position: relative;
   width: 44px;
   height: 24px;
@@ -10,11 +10,11 @@
   transition: background 0.2s;
 }
 
-.cfg-toggle.on {
+.toggle.on {
   background: var(--accent);
 }
 
-.cfg-toggle-thumb {
+.toggle-thumb {
   position: absolute;
   top: 3px;
   left: 3px;
@@ -27,6 +27,6 @@
   pointer-events: none;
 }
 
-.cfg-toggle.on .cfg-toggle-thumb {
+.toggle.on .toggle-thumb {
   transform: translateX(20px);
 }

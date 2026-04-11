@@ -11,7 +11,7 @@ const filteredWordsFile = joinPath(config.filteredWordsDir, config.filteredWords
 let _logger = null;
 let filteredWords = [];
 
-async function initFilter(logger = null) {
+async function setupFilter(logger = null) {
   _logger = logger;
   await ensureDir(config.filteredWordsDir);
   filteredWords = await loadJson(filteredWordsFile, []);
@@ -110,4 +110,4 @@ async function checkAndModerate(message) {
   return false;
 }
 
-export { initFilter, checkAndModerate, addFilteredWord, removeFilteredWord, getFilteredWords };
+export { setupFilter, checkAndModerate, addFilteredWord, removeFilteredWord, getFilteredWords };

@@ -1,6 +1,9 @@
-// Audit logger — registers Discord event listeners and logs server activity
+// Audit logger — registers Discord event listeners, logs server activity, and records stats
 
 import { Events } from 'discord.js';
+import * as config from './config.js';
+import { onboardMember } from './onboarding.js';
+import { recordMessage, recordNewUser, recordUserLeft, setMemberCount } from './serverstats.js';
 import { consoleColors, formatConsoleTag } from './terminal.js';
 
 const { green, yellow, red } = consoleColors;
@@ -29,6 +32,7 @@ export function setupAudit(client, logger) {
   // Message received
   client.on(Events.MessageCreate, async (message) => {
     if (message.author.bot) return;
+    await recordMessage();
     await logger.info(`${T.MESSAGE} ${message.author.tag} in #${message.channel.name ?? 'DM'}: ${message.content}`);
   });
 
@@ -53,11 +57,16 @@ export function setupAudit(client, logger) {
 
   // Member joined
   client.on(Events.GuildMemberAdd, async (member) => {
+    await recordNewUser();
+    await setMemberCount(member.guild.memberCount);
     await logger.info(`${T.JOIN} ${member.user.tag} (${member.id}) joined ${member.guild.name}`);
+    if (config.enableOnboarding) await onboardMember(member);
   });
 
   // Member left or was kicked
   client.on(Events.GuildMemberRemove, async (member) => {
+    await recordUserLeft();
+    await setMemberCount(member.guild.memberCount);
     await logger.info(`${T.LEAVE} ${member.user.tag} (${member.id}) left ${member.guild.name}`);
   });
 

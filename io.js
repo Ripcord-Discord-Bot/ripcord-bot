@@ -72,4 +72,14 @@ async function deleteFile(filePath) {
   await fsp.unlink(filePath);
 }
 
-export { checkDirExists, createDir, checkFileExists, createFile, appendToFile, readFile, ensureDir, readJson, writeJson, loadJson, deleteFile, joinPath, resolvePath };
+async function deleteDir(dirPath) {
+  validatePath(dirPath);
+  await fsp.rm(dirPath, { recursive: true, force: true });
+}
+
+async function readDir(dirPath) {
+  validatePath(dirPath);
+  return fsp.readdir(dirPath);
+}
+
+export { checkDirExists, createDir, checkFileExists, createFile, appendToFile, readFile, ensureDir, readJson, writeJson, loadJson, deleteFile, deleteDir, readDir, joinPath, resolvePath };

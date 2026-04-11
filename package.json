@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "description": "Discord bot environment",
-  "main": "index.js",
+  "main": "bot.js",
   "scripts": {
     "dev": "node launcher.js",
     "start": "node launcher.js",

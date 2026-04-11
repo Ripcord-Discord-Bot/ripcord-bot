@@ -6,7 +6,7 @@ import { dirname, join } from 'path';
 
 const RESTART_CODE = 100;
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const entry = join(__dirname, 'index.js');
+const entry = join(__dirname, 'bot.js');
 
 function launch() {
   const child = spawn(process.execPath, [...process.execArgv, entry], {

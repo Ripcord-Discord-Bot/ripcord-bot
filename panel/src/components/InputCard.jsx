@@ -4,13 +4,13 @@ import Card from './Card'
 // Shared add-item form used by list management pages.
 // onAdd(value) — called with the trimmed input value.
 //   Return false (or throw) to keep the input populated on failure.
-function AddItemCard({ title, placeholder, buttonLabel = 'Add', onAdd }) {
+function InputCard({ title, placeholder, buttonLabel = 'Add', onSubmit }) {
   const [input, setInput] = useState('')
 
-  async function handleAdd() {
+  async function handleSubmit() {
     const value = input.trim()
     if (!value) return
-    const result = await onAdd(value)
+    const result = await onSubmit(value)
     if (result !== false) setInput('')
   }
 
@@ -20,13 +20,13 @@ function AddItemCard({ title, placeholder, buttonLabel = 'Add', onAdd }) {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+          onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
           placeholder={placeholder}
         />
-        <button className="btn" onClick={handleAdd} type="button">{buttonLabel}</button>
+        <button className="btn" onClick={handleSubmit} type="button">{buttonLabel}</button>
       </div>
     </Card>
   )
 }
 
-export default AddItemCard
+export default InputCard

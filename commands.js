@@ -4,10 +4,12 @@ import { stopApi } from './api.js';
 import * as config from './config.js';
 import { prompt } from './ai.js';
 import { isFromTerminal, hasPermission } from './authentication.js';
-import { addBannedUser, removeBannedUser } from './bannedlist.js';
+import { addKickedUser, removeKickedUser } from './kickedusers.js';
+import { banMember, unbanMember } from './interactions.js';
+import { addBannedUser, removeBannedUser } from './bannedusers.js';
 import { shutdown, restart } from './exit.js';
 import { addFilteredWord, removeFilteredWord } from './filter.js';
-import { addSchedule, removeSchedule, listSchedules, enableSchedule, disableSchedule, runScheduleNow, parseInterval, stopScheduler, parseScheduleAdd } from './scheduler.js';
+import { addTask, removeTask, listTasks, enableTask, disableTask, runTaskNow, parseInterval, stopScheduler, parseTaskAdd } from './scheduler.js';
 import { getServerStats, recordCommandRun } from './serverstats.js';
 import { terminalOutput } from './terminal.js';
 const prefix = config.commandPrefix;
@@ -89,37 +91,113 @@ const commands = {
       }
     },
   },
-  ban: {
-    description: 'Adds one or more user IDs to the banned list.',
+  kick: {
+    description: 'Adds one or more user IDs to the kick list.',
     permission: 'ModerateMembers',
-    usage: `${prefix}ban <userId> [userId2 ...]`,
+    usage: `${prefix}kick <userId> [userId2 ...]`,
     execute: async ({ message, command, logger }) => {
       if (!command.args.length) {
-        await message.reply(`Usage: ${prefix}ban <userId> [userId2 ...]`);
+        await message.reply(`Usage: ${prefix}kick <userId> [userId2 ...]`);
         return;
       }
       const results = await Promise.all(
-        command.args.map((userId) => addBannedUser(userId).then(() => userId))
+        command.args.map((userId) => addKickedUser(userId).then(() => userId))
       );
-      await message.reply(`Banned ${results.length} user(s): ${results.map((id) => `\`${id}\``).join(', ')}`);
+      await message.reply(`Kicked ${results.length} user(s): ${results.map((id) => `\`${id}\``).join(', ')}`);
     },
   },
-  unban: {
-    description: 'Removes a user ID from the banned list.',
+  unkick: {
+    description: 'Removes a user ID from the kick list.',
     permission: 'ModerateMembers',
-    usage: `${prefix}unban <userId>`,
+    usage: `${prefix}unkick <userId>`,
     execute: async ({ message, command, logger }) => {
       const userId = command.args[0];
       if (!userId) {
-        await message.reply(`Usage: ${prefix}unban <userId>`);
+        await message.reply(`Usage: ${prefix}unkick <userId>`);
         return;
       }
-      const removed = await removeBannedUser(userId);
+      const removed = await removeKickedUser(userId);
       if (removed) {
-        await message.reply(`User \`${userId}\` has been removed from the banned list.`);
+        await message.reply(`User \`${userId}\` has been removed from the kick list.`);
       } else {
-        await message.reply(`User \`${userId}\` is not on the banned list.`);
+        await message.reply(`User \`${userId}\` is not on the kick list.`);
       }
+    },
+  },
+  ban: {
+    description: 'Bans one or more user IDs from the server.',
+    permission: 'BanMembers',
+    usage: `${prefix}ban <userId> [userId2 ...] [reason: <text>]`,
+    execute: async ({ message, command, logger }) => {
+      if (!command.args.length) {
+        await message.reply(`Usage: ${prefix}ban <userId> [userId2 ...] [reason: <text>]`);
+        return;
+      }
+
+      // Split args: user IDs stop at the first "reason:" token
+      const reasonIndex = command.args.findIndex((a) => a.toLowerCase() === 'reason:');
+      const userIds = reasonIndex === -1 ? command.args : command.args.slice(0, reasonIndex);
+      const reason = reasonIndex !== -1 ? command.args.slice(reasonIndex + 1).join(' ') : null;
+
+      if (!userIds.length) {
+        await message.reply(`Usage: ${prefix}ban <userId> [userId2 ...] [reason: <text>]`);
+        return;
+      }
+
+      const results = await Promise.all(
+        userIds.map(async (userId) => {
+          const ok = await addBannedUser(userId);
+          return { userId, ok };
+        })
+      );
+      const succeeded = results.filter((r) => r.ok !== false).map((r) => `\`${r.userId}\``);
+      const failed    = results.filter((r) => r.ok === false).map((r) => `\`${r.userId}\``);
+
+      const parts = [];
+      if (succeeded.length) parts.push(`Banned ${succeeded.length} user(s): ${succeeded.join(', ')}`);
+      if (failed.length)    parts.push(`Failed to ban: ${failed.join(', ')}`);
+      if (reason)           parts.push(`Reason: ${reason}`);
+
+      if (succeeded.length) await logger.info(`Banned ${succeeded.join(', ')} by ${message.author.tag}${reason ? `: ${reason}` : ''}`);
+      await message.reply(parts.join('\n'));
+    },
+  },
+  unban: {
+    description: 'Unbans one or more user IDs from the server.',
+    permission: 'BanMembers',
+    usage: `${prefix}unban <userId> [userId2 ...] [reason: <text>]`,
+    execute: async ({ message, command, logger }) => {
+      if (!command.args.length) {
+        await message.reply(`Usage: ${prefix}unban <userId> [userId2 ...] [reason: <text>]`);
+        return;
+      }
+
+      const reasonIndex = command.args.findIndex((a) => a.toLowerCase() === 'reason:');
+      const userIds = reasonIndex === -1 ? command.args : command.args.slice(0, reasonIndex);
+      const reason = reasonIndex !== -1 ? command.args.slice(reasonIndex + 1).join(' ') : null;
+
+      if (!userIds.length) {
+        await message.reply(`Usage: ${prefix}unban <userId> [userId2 ...] [reason: <text>]`);
+        return;
+      }
+
+      const results = await Promise.all(
+        userIds.map(async (userId) => {
+          const ok = await removeBannedUser(userId);
+          if (ok !== false) await unbanMember(userId, reason);
+          return { userId, ok };
+        })
+      );
+      const succeeded = results.filter((r) => r.ok !== false).map((r) => `\`${r.userId}\``);
+      const failed    = results.filter((r) => r.ok === false).map((r) => `\`${r.userId}\``);
+
+      const parts = [];
+      if (succeeded.length) parts.push(`Unbanned ${succeeded.length} user(s): ${succeeded.join(', ')}`);
+      if (failed.length)    parts.push(`Failed to unban: ${failed.join(', ')}`);
+      if (reason)           parts.push(`Reason: ${reason}`);
+
+      if (succeeded.length) await logger.info(`Unbanned ${succeeded.join(', ')} by ${message.author.tag}${reason ? `: ${reason}` : ''}`);
+      await message.reply(parts.join('\n'));
     },
   },
   stats: {
@@ -199,7 +277,7 @@ const commands = {
 
       // !schedule  or  !schedule list
       if (!sub || sub === 'list') {
-        const tasks = listSchedules();
+        const tasks = listTasks();
         if (!tasks.length) {
           await message.reply('No scheduled tasks.');
           return;
@@ -216,7 +294,7 @@ const commands = {
       // !schedule add <id> interval <duration> <channel> <message...>
       // !schedule add <id> cron <m> <h> <dom> <mon> <dow> <channel> <message...>
       if (sub === 'add') {
-        const result = parseScheduleAdd(command.args.slice(1));
+        const result = parseTaskAdd(command.args.slice(1));
 
         if (!result.ok) {
           if (result.reason === 'missing_id_mode') {
@@ -239,12 +317,12 @@ const commands = {
           return;
         }
 
-        if (listSchedules().some((t) => t.id === result.task.id)) {
+        if (listTasks().some((t) => t.id === result.task.id)) {
           await message.reply(`A schedule with id \`${result.task.id}\` already exists. Remove it first.`);
           return;
         }
 
-        await addSchedule(result.task, logger);
+        await addTask(result.task, logger);
         await message.reply(`Added schedule \`${result.task.id}\` (${result.task.mode}: \`${result.task.timing}\`) → #${result.task.channelName}.`);
         return;
       }
@@ -256,7 +334,7 @@ const commands = {
           await message.reply(`Usage: \`${prefix}schedule remove <id>\``);
           return;
         }
-        const removed = await removeSchedule(id, logger);
+        const removed = await removeTask(id, logger);
         await message.reply(removed ? `Removed schedule \`${id}\`.` : `No schedule found with id \`${id}\`.`);
         return;
       }
@@ -268,7 +346,7 @@ const commands = {
           await message.reply(`Usage: \`${prefix}schedule enable <id>\``);
           return;
         }
-        const ok = await enableSchedule(id, logger);
+        const ok = await enableTask(id, logger);
         await message.reply(ok ? `Enabled schedule \`${id}\`.` : `No schedule found with id \`${id}\`.`);
         return;
       }
@@ -280,7 +358,7 @@ const commands = {
           await message.reply(`Usage: \`${prefix}schedule disable <id>\``);
           return;
         }
-        const ok = await disableSchedule(id, logger);
+        const ok = await disableTask(id, logger);
         await message.reply(ok ? `Disabled schedule \`${id}\`.` : `No schedule found with id \`${id}\`.`);
         return;
       }
@@ -292,7 +370,7 @@ const commands = {
           await message.reply(`Usage: \`${prefix}schedule run <id>\``);
           return;
         }
-        const ok = await runScheduleNow(id, logger);
+        const ok = await runTaskNow(id, logger);
         await message.reply(ok ? `Triggered schedule \`${id}\`.` : `No schedule found with id \`${id}\`.`);
         return;
       }

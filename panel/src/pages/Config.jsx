@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api'
 import { useApiData } from '../hooks/useApiData'
 import './Config.css'
 import PageHeader from '../components/PageHeader'
 import ConfigSection from '../components/ConfigSection'
 import ConfigRow from '../components/ConfigRow'
-import ConfigToggle from '../components/ConfigToggle'
+import Toggle from '../components/Toggle'
 
 const SECTIONS = [
   {
@@ -34,6 +34,7 @@ const SECTIONS = [
     title: 'Features',
     fields: [
       { key: 'enableFiltering',   label: 'Word Filtering',  hint: 'Auto-delete messages with filtered words', type: 'toggle' },
+      { key: 'enableOnboarding',  label: 'Onboarding',      hint: 'Post rules message and assign Trusted role on reaction', type: 'toggle' },
       { key: 'enableTickets',     label: 'Tickets',         hint: 'Create support tickets from the issues channel', type: 'toggle' },
       { key: 'enableConsole',     label: 'Console Logging', hint: 'Print log output to the terminal', type: 'toggle' },
       { key: 'enableFileLogging', label: 'File Logging',    hint: 'Write logs to disk', type: 'toggle' },
@@ -85,9 +86,10 @@ function Config() {
     }
   }
 
-  function isDirty() {
-    return saved && Object.keys(local).some((k) => String(local[k]) !== String(saved[k]))
-  }
+  const isDirty = useMemo(
+    () => !!saved && Object.keys(local).some((k) => String(local[k]) !== String(saved[k])),
+    [local, saved]
+  )
 
   if (loading) return <p className="empty">Loading...</p>
   if (loadError) return <p className="error-text">{loadError}</p>
@@ -96,7 +98,7 @@ function Config() {
     <>
       <PageHeader title="Configuration" error={saveError}>
         {restarting && <span className="cfg-saved-notice">Saved — bot is restarting...</span>}
-        <button className="btn" onClick={handleSave} disabled={saving || restarting || !isDirty()}>
+        <button className="btn" onClick={handleSave} disabled={saving || restarting || !isDirty}>
           {saving ? 'Saving...' : 'Save Changes'}
         </button>
       </PageHeader>
@@ -106,7 +108,7 @@ function Config() {
           {section.fields.map((field) => (
             <ConfigRow key={field.key} label={field.label} hint={field.hint} htmlFor={field.key}>
               {field.type === 'toggle' ? (
-                <ConfigToggle
+                <Toggle
                   id={field.key}
                   checked={!!local[field.key]}
                   onChange={(val) => handleChange(field.key, val)}

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import Layout from './components/Layout'
 import Filter from './pages/Filter'
-import BannedList from './pages/BannedList'
+import AutoKicker from './pages/AutoKicker'
+import BannedUsers from './pages/BannedUsers'
 import Logs from './pages/Logs'
 import Stats from './pages/Stats'
 import Tickets from './pages/Tickets'
@@ -10,10 +11,14 @@ import Scheduler from './pages/Scheduler'
 import { api } from './api'
 import './App.css'
 
+import Invites from './pages/Invites'
+
 const PAGES = {
   stats: Stats,
   filter: Filter,
-  banned: BannedList,
+  autokicker: AutoKicker,
+  bannedusers: BannedUsers,
+  invites: Invites,
   logs: Logs,
   tickets: Tickets,
   config: Config,
@@ -22,15 +27,14 @@ const PAGES = {
 
 function App() {
   const [page, setPage] = useState('stats')
-  const [ticketCount, setTicketCount] = useState(0)
+  const [tickets, setTickets] = useState([])
   const [botOnline, setBotOnline] = useState(null)
-  const Page = PAGES[page] ?? Stats
 
   useEffect(() => {
     async function check() {
       try {
-        const tickets = await api.getTickets()
-        setTicketCount(tickets.length)
+        const data = await api.getTickets()
+        setTickets(data)
         setBotOnline(true)
       } catch {
         setBotOnline(false)
@@ -41,9 +45,20 @@ function App() {
     return () => clearInterval(id)
   }, [])
 
+  function handleTicketDeleted() {
+    setTickets((prev) => prev.slice(0, Math.max(0, prev.length - 1)))
+  }
+
   return (
-    <Layout page={page} onNavigate={setPage} ticketBadge={ticketCount} botOnline={botOnline}>
-      <Page onTicketDeleted={page === 'tickets' ? () => setTicketCount((c) => Math.max(0, c - 1)) : undefined} />
+    <Layout page={page} onNavigate={setPage} ticketBadge={tickets.length} botOnline={botOnline}>
+      {Object.entries(PAGES).map(([id, Page]) => (
+        <div key={id} style={id === page ? undefined : { display: 'none' }}>
+          <Page
+            tickets={id === 'stats' ? tickets : undefined}
+            onTicketDeleted={id === 'tickets' ? handleTicketDeleted : undefined}
+          />
+        </div>
+      ))}
     </Layout>
   )
 }

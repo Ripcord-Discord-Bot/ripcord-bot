@@ -8,7 +8,7 @@ function PageHeader({ title, error, children }) {
         <h1 className="page-title">{title}</h1>
         {children && <div className="page-header-actions">{children}</div>}
       </div>
-      {error && <p className="error-text">{error}</p>}
+      <p className={`page-header-error${error ? '' : ' page-header-error--hidden'}`}>{error ?? '\u00a0'}</p>
     </div>
   )
 }

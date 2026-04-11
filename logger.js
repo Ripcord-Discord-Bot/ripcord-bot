@@ -2,7 +2,7 @@
 
 import * as config from './config.js';
 import { printToConsole, formatConsoleTag, consoleColors } from './terminal.js';
-import { createDir, appendToFile, resolvePath, joinPath } from './io.js';
+import { createDir, appendToFile, resolvePath, joinPath, readFile } from './io.js';
 
 const logDirectory = resolvePath(config.logsPath);
 if (config.enableFileLogging) {
@@ -55,5 +55,22 @@ const logger = {
     await appendLog('ERROR', message);
   },
 };
+
+export async function readLogs(date, limit = 0, offset = 0) {
+  const logPath = joinPath(logDirectory, `${date}.log`);
+  try {
+    const raw = await readFile(logPath);
+    let lines = raw.trim().split('\n').filter(Boolean).map((line) => {
+      const m = line.match(/^\[(.+?)\] \[(.+?)\] (.+)$/);
+      return m ? { timestamp: m[1], level: m[2], message: m[3] } : { timestamp: '', level: 'INFO', message: line };
+    });
+    const total = lines.length;
+    if (offset) lines = lines.slice(offset);
+    if (limit)  lines = lines.slice(0, limit);
+    return { total, offset, lines };
+  } catch {
+    return { total: 0, offset: 0, lines: [] };
+  }
+}
 
 export default logger;

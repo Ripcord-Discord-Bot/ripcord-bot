@@ -1,3 +1,14 @@
+// Set the system channel for the guild by channel ID
+// Requires: Bot must have MANAGE_GUILD permission
+export async function setSystemChannel(channelId) {
+  const guild = getGuild();
+  if (!guild) throw new Error('No guild available');
+  const channel = guild.channels.cache.get(channelId);
+  if (!channel) throw new Error('Channel not found');
+  // Patch the guild's systemChannelId
+  await guild.setSystemChannel(channel, 'Set by bot command');
+  return guild.systemChannelId === channelId;
+}
 // Interactions — utility functions for Discord guild operations
 
 import { ChannelType, PermissionFlagsBits } from 'discord.js';
@@ -11,7 +22,7 @@ export function setupInteractions(client, logger) {
 }
 
 // Returns the first guild the bot is in, or null
-function getGuild() {
+export function getGuild() {
   return _client?.guilds.cache.first() ?? null;
 }
 
@@ -64,6 +75,11 @@ export function listCategories() {
     .filter((ch) => ch.type === ChannelType.GuildCategory)
     .map((ch) => ({ id: ch.id, name: ch.name }))
     .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// Returns the current member count for the guild, or 0 if unavailable.
+export function getGuildMemberCount() {
+  return getGuild()?.memberCount ?? 0;
 }
 
 // Send a message to a text channel by name. Returns the sent message, or null on failure.
@@ -164,16 +180,6 @@ export async function createCategory(name, options = {}) {
   }
 }
 
-// Create an empty category for text channels. Returns the category or null.
-export async function createTextCategory(name, options = {}) {
-  return createCategory(name, options);
-}
-
-// Create an empty category for voice channels. Returns the category or null.
-export async function createVoiceCategory(name, options = {}) {
-  return createCategory(name, options);
-}
-
 // Move channels into a category by name. Returns the number of channels successfully moved.
 export async function moveChannelsToCategory(channelNames, categoryName) {
   const category = findCategory(categoryName);
@@ -239,6 +245,23 @@ export async function deleteCategory(name, reason = null) {
   }
 }
 
+// Rename a category. Returns true on success.
+export async function renameCategory(name, newName) {
+  const category = findCategory(name);
+  if (!category) {
+    if (_logger) await _logger.warn(`Interactions: category "${name}" not found for rename`);
+    return false;
+  }
+  try {
+    await category.setName(newName);
+    if (_logger) await _logger.info(`Interactions: renamed category "${name}" to "${newName}"`);
+    return true;
+  } catch (error) {
+    if (_logger) await _logger.error(`Interactions: failed to rename category "${name}": ${error.message || error}`);
+    return false;
+  }
+}
+
 // Find a guild member by ID, username, or tag. Returns the member or null.
 export async function findMember(identifier) {
   const guild = getGuild();
@@ -287,6 +310,208 @@ export async function kickMember(userId, reason = null) {
     return true;
   } catch (error) {
     if (_logger) await _logger.error(`Interactions: failed to kick ${userId}: ${error.message || error}`);
+    return false;
+  }
+}
+
+// Ban a member from the guild by user ID. Returns true on success.
+export async function banMember(userId, reason = null, deleteMessageSeconds = 0) {
+  const guild = getGuild();
+  if (!guild) {
+    if (_logger) await _logger.warn(`Interactions: no guild available for ban`);
+    return false;
+  }
+  try {
+    await guild.members.ban(userId, { reason, deleteMessageSeconds });
+    if (_logger) await _logger.info(`Interactions: banned ${userId}${reason ? `: ${reason}` : ''}`);
+    return true;
+  } catch (error) {
+    if (_logger) await _logger.error(`Interactions: failed to ban ${userId}: ${error.message || error}`);
+    return false;
+  }
+}
+
+// Unban a user from the guild by user ID. Returns true on success.
+export async function unbanMember(userId, reason = null) {
+  const guild = getGuild();
+  if (!guild) {
+    if (_logger) await _logger.warn(`Interactions: no guild available for unban`);
+    return false;
+  }
+  try {
+    await guild.members.unban(userId, reason);
+    if (_logger) await _logger.info(`Interactions: unbanned ${userId}${reason ? `: ${reason}` : ''}`);
+    return true;
+  } catch (error) {
+    if (_logger) await _logger.error(`Interactions: failed to unban ${userId}: ${error.message || error}`);
+    return false;
+  }
+}
+
+// Find a role by name. Returns the role or null.
+export function findRole(name) {
+  const guild = getGuild();
+  return guild?.roles.cache.find((r) => r.name === name) ?? null;
+}
+
+// Create a role. Returns the new role, or the existing one if already present.
+export async function createRole(name, options = {}) {
+  const guild = getGuild();
+  if (!guild) return null;
+
+  const existing = findRole(name);
+  if (existing) {
+    if (_logger) await _logger.warn(`Interactions: role "${name}" already exists`);
+    return existing;
+  }
+
+  try {
+    const role = await guild.roles.create({
+      name,
+      ...(options.color != null ? { colors: options.color } : {}),
+      hoist: options.hoist ?? false,
+      mentionable: options.mentionable ?? false,
+      reason: options.reason ?? null,
+    });
+    if (_logger) await _logger.info(`Interactions: created role "${name}"`);
+    return role;
+  } catch (error) {
+    if (_logger) await _logger.error(`Interactions: failed to create role "${name}": ${error.message || error}`);
+    return null;
+  }
+}
+
+// List all deletable roles (excludes @everyone and managed/integration roles).
+export function listRoles() {
+  const guild = getGuild();
+  if (!guild) return [];
+  return guild.roles.cache
+    .filter((r) => r.name !== '@everyone' && !r.managed)
+    .map((r) => ({ id: r.id, name: r.name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// Delete a role by its Discord ID. Returns true on success.
+export async function deleteRoleById(id, reason = null) {
+  const guild = getGuild();
+  if (!guild) return false;
+  const role = guild.roles.cache.get(id);
+  if (!role) {
+    if (_logger) await _logger.warn(`Interactions: role ${id} not found for deletion`);
+    return false;
+  }
+  try {
+    const name = role.name;
+    await role.delete(reason);
+    if (_logger) await _logger.info(`Interactions: deleted role "${name}" (${id})`);
+    return true;
+  } catch (error) {
+    if (_logger) await _logger.error(`Interactions: failed to delete role ${id}: ${error.message || error}`);
+    return false;
+  }
+}
+
+// Shared helper for addRole/removeRole.
+async function _modifyRole(member, roleName, action) {
+  const role = findRole(roleName);
+  if (!role) {
+    if (_logger) await _logger.warn(`Interactions: role "${roleName}" not found`);
+    return false;
+  }
+  try {
+    await member.roles[action](role);
+    const verb = action === 'add' ? 'added' : 'removed';
+    const prep = action === 'add' ? 'to' : 'from';
+    if (_logger) await _logger.info(`Interactions: ${verb} role "${roleName}" ${prep} ${member.user.tag}`);
+    return true;
+  } catch (error) {
+    const verb = action === 'add' ? 'add' : 'remove';
+    if (_logger) await _logger.error(`Interactions: failed to ${verb} role "${roleName}" for ${member.user.tag}: ${error.message || error}`);
+    return false;
+  }
+}
+
+// Add a named role to a member. Returns true on success.
+export async function addRole(member, roleName) {
+  return _modifyRole(member, roleName, 'add');
+}
+
+// Remove a named role from a member. Returns true on success.
+export async function removeRole(member, roleName) {
+  return _modifyRole(member, roleName, 'remove');
+}
+
+// Delete all messages in a text channel by name. Returns total messages deleted.
+// Uses bulkDelete for recent messages (< 14 days) and individual delete for older ones.
+export async function clearChannel(name) {
+  const channel = findTextChannel(name);
+  if (!channel) {
+    if (_logger) await _logger.warn(`Interactions: channel #${name} not found for clearing`);
+    return 0;
+  }
+  let totalDeleted = 0;
+  const twoWeeksAgo = Date.now() - 14 * 24 * 60 * 60 * 1000;
+  try {
+    let fetched;
+    do {
+      fetched = await channel.messages.fetch({ limit: 100 });
+      if (fetched.size === 0) break;
+      const recent = fetched.filter((m) => m.createdTimestamp > twoWeeksAgo);
+      const old = fetched.filter((m) => m.createdTimestamp <= twoWeeksAgo);
+      if (recent.size >= 2) {
+        await channel.bulkDelete(recent);
+      } else {
+        for (const m of recent.values()) {
+          try { await m.delete(); } catch {}
+        }
+      }
+      for (const m of old.values()) {
+        try { await m.delete(); } catch {}
+      }
+      totalDeleted += fetched.size;
+    } while (fetched.size === 100);
+  } catch (error) {
+    if (_logger) await _logger.error(`Interactions: failed to clear #${name}: ${error.message || error}`);
+  }
+  if (_logger) await _logger.info(`Interactions: cleared ${totalDeleted} messages from #${name}`);
+  return totalDeleted;
+}
+
+// Rename a category by its Discord ID. Returns true on success.
+export async function renameCategoryById(id, newName) {
+  const guild = getGuild();
+  if (!guild) return false;
+  const category = guild.channels.cache.get(id);
+  if (!category) {
+    if (_logger) await _logger.warn(`Interactions: category ${id} not found for rename`);
+    return false;
+  }
+  try {
+    await category.setName(newName);
+    if (_logger) await _logger.info(`Interactions: renamed category to "${newName}" (${id})`);
+    return true;
+  } catch (error) {
+    if (_logger) await _logger.error(`Interactions: failed to rename category ${id}: ${error.message || error}`);
+    return false;
+  }
+}
+
+// Delete a channel or category by its Discord ID. Returns true on success.
+export async function deleteChannelById(id, reason = null) {
+  const guild = getGuild();
+  if (!guild) return false;
+  const channel = guild.channels.cache.get(id);
+  if (!channel) {
+    if (_logger) await _logger.warn(`Interactions: channel/category ${id} not found for deletion`);
+    return false;
+  }
+  try {
+    const label = channel.type === ChannelType.GuildCategory ? `category "${channel.name}"` : `channel #${channel.name}`;
+    await channel.delete(reason);
+    if (_logger) await _logger.info(`Interactions: deleted ${label} (${id})`);
+    return true;
+  } catch (error) {
+    if (_logger) await _logger.error(`Interactions: failed to delete ${id}: ${error.message || error}`);
     return false;
   }
 }

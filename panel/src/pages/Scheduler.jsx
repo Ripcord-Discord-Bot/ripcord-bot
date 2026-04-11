@@ -4,23 +4,23 @@ import { useApiData } from '../hooks/useApiData'
 import { usePoll } from '../hooks/usePoll'
 import PageHeader from '../components/PageHeader'
 import Card from '../components/Card'
-import ScheduleCard from '../components/ScheduleCard'
+import TaskCard from '../components/TaskCard'
 import './Scheduler.css'
 
 const EMPTY_FORM = { id: '', mode: 'interval', timing: '', channelName: '', payload: '', enabled: true }
 
 function Scheduler() {
-  const { data: schedules, setData: setSchedules, loading, error, setError, refetch } = useApiData(api.getSchedules, [])
+  const { data: tasks, setData: setTasks, loading, error, setError, refetch } = useApiData(api.getSchedules, [])
   const [form, setForm] = useState(EMPTY_FORM)
   const [formError, setFormError] = useState(null)
 
-  usePoll(refetch, 10_000, [refetch])
+  usePoll(refetch, 10_000)
 
   function setField(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }))
   }
 
-  async function handleAdd() {
+  async function handleAddTask() {
     setFormError(null)
     const task = {
       ...form,
@@ -34,41 +34,41 @@ function Scheduler() {
       return
     }
     try {
-      const created = await api.addSchedule(task)
-      setSchedules((prev) => [...prev, created])
+      const created = await api.addTask(task)
+      setTasks((prev) => [...prev, created])
       setForm(EMPTY_FORM)
     } catch (e) {
       setFormError(e.message)
     }
   }
 
-  async function handleDelete(id) {
+  async function handleDeleteTask(id) {
     try {
-      await api.deleteSchedule(id)
-      setSchedules((prev) => prev.filter((s) => s.id !== id))
+      await api.deleteTask(id)
+      setTasks((prev) => prev.filter((s) => s.id !== id))
       setError(null)
     } catch (e) {
       setError(e.message)
     }
   }
 
-  async function handleToggle(id, enable) {
+  async function handleToggleTask(id, enable) {
     try {
-      const updated = enable ? await api.enableSchedule(id) : await api.disableSchedule(id)
-      setSchedules((prev) => prev.map((s) => s.id === id ? { ...s, enabled: updated.enabled } : s))
+      const updated = enable ? await api.enableTask(id) : await api.disableTask(id)
+      setTasks((prev) => prev.map((s) => s.id === id ? { ...s, enabled: updated.enabled } : s))
       setError(null)
     } catch (e) {
       setError(e.message)
     }
   }
 
-  async function handleRun(id) {
-    await api.runSchedule(id)
+  async function handleRunTask(id) {
+    await api.runTask(id)
     refetch()
   }
 
-  const userTasks   = schedules.filter((s) => !s.system)
-  const systemTasks = schedules.filter((s) =>  s.system)
+  const userTasks   = tasks.filter((s) => !s.system)
+  const systemTasks = tasks.filter((s) =>  s.system)
 
   return (
     <>
@@ -126,7 +126,7 @@ function Scheduler() {
                 onChange={(e) => setField('enabled', e.target.checked)}
               />
             </label>
-            <button className="btn" onClick={handleAdd} type="button">Add</button>
+            <button className="btn" onClick={handleAddTask} type="button">Add</button>
           </div>
         </div>
       </Card>
@@ -139,12 +139,12 @@ function Scheduler() {
             <section>
               <p className="scheduler-section-label">User Schedules ({userTasks.length})</p>
               {userTasks.map((s) => (
-                <ScheduleCard
+                <TaskCard
                   key={s.id}
-                  schedule={s}
-                  onDelete={handleDelete}
-                  onToggle={handleToggle}
-                  onRun={handleRun}
+                  task={s}
+                  onDelete={handleDeleteTask}
+                  onToggle={handleToggleTask}
+                  onRun={handleRunTask}
                 />
               ))}
             </section>
@@ -158,12 +158,12 @@ function Scheduler() {
             <section>
               <p className="scheduler-section-label">System Schedules ({systemTasks.length})</p>
               {systemTasks.map((s) => (
-                <ScheduleCard
+                <TaskCard
                   key={s.id}
-                  schedule={s}
-                  onDelete={handleDelete}
-                  onToggle={handleToggle}
-                  onRun={handleRun}
+                  task={s}
+                  onDelete={handleDeleteTask}
+                  onToggle={handleToggleTask}
+                  onRun={handleRunTask}
                 />
               ))}
             </section>

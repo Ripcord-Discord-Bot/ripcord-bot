@@ -2,8 +2,25 @@
 
 import readline from 'readline';
 import * as config from './config.js';
+import { ensureDir, joinPath, loadJson, writeJson, resolvePath } from './io.js';
 
 let promptInterface = null;
+
+const HISTORY_DIR = resolvePath('data');
+const HISTORY_FILE = joinPath(HISTORY_DIR, 'terminal-history.json');
+const HISTORY_MAX = 200;
+
+async function loadHistory() {
+  return await loadJson(HISTORY_FILE, []);
+}
+
+async function saveHistory(history) {
+  try {
+    await writeJson(HISTORY_FILE, history.slice(0, HISTORY_MAX));
+  } catch {
+    // non-fatal — history just won't persist this session
+  }
+}
 
 const consoleColors = {
   reset: '\x1b[0m',
@@ -54,12 +71,16 @@ function closeTerminal() {
   promptInterface = null;
 }
 
-function setupTerminal(handleInput, logger) {
+async function setupTerminal(handleInput, logger) {
+  await ensureDir(HISTORY_DIR);
+
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
     prompt: 'ripcord > ',
     terminal: true,
+    history: await loadHistory(),
+    historySize: HISTORY_MAX,
   });
 
   setPromptInterface(rl);
@@ -67,6 +88,8 @@ function setupTerminal(handleInput, logger) {
 
   // Forward readline's SIGINT to the process-level handler in exit.js
   rl.on('SIGINT', () => process.emit('SIGINT'));
+
+  rl.on('history', async (history) => saveHistory(history));
 
   rl.on('line', async (line) => {
     const handled = await handleInput(line, logger);
