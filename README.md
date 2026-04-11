@@ -6,25 +6,7 @@ A modular, modern Discord bot for server management, moderation, scheduling, and
 
 - **Web Panel** — browser-based panel for managing config, tasks, filters, the kick list, tickets, logs, and stats.
 
-* **Invite Tracking & Panel** — create, track, and manage Discord invite links from the panel. Tracked uses update in real time as invites are used.
-
-## Invite Tracking & Panel
-
-You can create, view, and delete Discord invite links directly from the web panel. The panel displays the number of times each invite has been used (tracked uses), and this count updates automatically in real time as users join with your invites.
-
-**How it works:**
-
-- The bot listens for new members joining and updates the tracked uses for each invite.
-- The panel polls the backend every 5 seconds to show the latest tracked uses for each invite.
-- You can delete invites from the panel, and create new ones for any channel.
-
-**Fields shown in the panel:**
-
-- Invite URL
-- Channel
-- Tracked Uses (updates live)
-- Max Uses
-- Max Age
+- **Invite Tracking** — create, track, and manage Discord invite links from the panel. Tracked uses update in real time as invites are used.
 
 - **Message Filtering** — detects and removes filtered words. Moderators are exempt.
 - **Auto Kicker** — persistent kick list; listed users are kicked immediately when added or on join.
