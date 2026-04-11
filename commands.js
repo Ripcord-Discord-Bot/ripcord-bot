@@ -268,14 +268,14 @@ const commands = {
       }
     },
   },
-  schedule: {
+  task: {
     description: 'Manages scheduled tasks.',
     permission: 'ModerateMembers',
-    usage: `${prefix}schedule <list|add|remove|enable|disable|run>`,
+    usage: `${prefix}task <list|add|remove|enable|disable|run>`,
     execute: async ({ message, command, logger }) => {
       const sub = command.args[0];
 
-      // !schedule  or  !schedule list
+      // !task  or  !task list
       if (!sub || sub === 'list') {
         const tasks = listTasks();
         if (!tasks.length) {
@@ -291,8 +291,8 @@ const commands = {
         return;
       }
 
-      // !schedule add <id> interval <duration> <channel> <message...>
-      // !schedule add <id> cron <m> <h> <dom> <mon> <dow> <channel> <message...>
+      // !task add <id> interval <duration> <channel> <message...>
+      // !task add <id> cron <m> <h> <dom> <mon> <dow> <channel> <message...>
       if (sub === 'add') {
         const result = parseTaskAdd(command.args.slice(1));
 
@@ -300,17 +300,17 @@ const commands = {
           if (result.reason === 'missing_id_mode') {
             await message.reply(
               `Usage:\n` +
-              `\`${prefix}schedule add <id> interval <duration> <channel> <message>\`\n` +
-              `\`${prefix}schedule add <id> cron <m h dom mon dow> <channel> <message>\`\n` +
+              `\`${prefix}task add <id> interval <duration> <channel> <message>\`\n` +
+              `\`${prefix}task add <id> cron <m h dom mon dow> <channel> <message>\`\n` +
               `Duration examples: \`30s\`, \`5m\`, \`2h\`, \`1d\`, \`1w\`\n` +
               `Cron example: \`0 9 * * 1\` (every Monday at 9:00)`
             );
           } else if (result.reason === 'missing_interval_args') {
-            await message.reply(`Usage: \`${prefix}schedule add <id> interval <duration> <channel> <message>\``);
+            await message.reply(`Usage: \`${prefix}task add <id> interval <duration> <channel> <message>\``);
           } else if (result.reason === 'invalid_interval') {
             await message.reply(`Invalid duration \`${result.timing}\`. Use a format like \`5m\`, \`1h\`, \`2d\`.`);
           } else if (result.reason === 'missing_cron_args') {
-            await message.reply(`Usage: \`${prefix}schedule add <id> cron <m> <h> <dom> <mon> <dow> <channel> <message>\``);
+            await message.reply(`Usage: \`${prefix}task add <id> cron <m> <h> <dom> <mon> <dow> <channel> <message>\``);
           } else if (result.reason === 'unknown_mode') {
             await message.reply(`Unknown mode \`${result.mode}\`. Use \`interval\` or \`cron\`.`);
           }
@@ -318,60 +318,60 @@ const commands = {
         }
 
         if (listTasks().some((t) => t.id === result.task.id)) {
-          await message.reply(`A schedule with id \`${result.task.id}\` already exists. Remove it first.`);
+          await message.reply(`A task with id \`${result.task.id}\` already exists. Remove it first.`);
           return;
         }
 
         await addTask(result.task, logger);
-        await message.reply(`Added schedule \`${result.task.id}\` (${result.task.mode}: \`${result.task.timing}\`) → #${result.task.channelName}.`);
+        await message.reply(`Added task \`${result.task.id}\` (${result.task.mode}: \`${result.task.timing}\`) → #${result.task.channelName}.`);
         return;
       }
 
-      // !schedule remove <id>
+      // !task remove <id>
       if (sub === 'remove') {
         const id = command.args[1];
         if (!id) {
-          await message.reply(`Usage: \`${prefix}schedule remove <id>\``);
+          await message.reply(`Usage: \`${prefix}task remove <id>\``);
           return;
         }
         const removed = await removeTask(id, logger);
-        await message.reply(removed ? `Removed schedule \`${id}\`.` : `No schedule found with id \`${id}\`.`);
+        await message.reply(removed ? `Removed task \`${id}\`.` : `No task found with id \`${id}\`.`);
         return;
       }
 
-      // !schedule enable <id>
+      // !task enable <id>
       if (sub === 'enable') {
         const id = command.args[1];
         if (!id) {
-          await message.reply(`Usage: \`${prefix}schedule enable <id>\``);
+          await message.reply(`Usage: \`${prefix}task enable <id>\``);
           return;
         }
         const ok = await enableTask(id, logger);
-        await message.reply(ok ? `Enabled schedule \`${id}\`.` : `No schedule found with id \`${id}\`.`);
+        await message.reply(ok ? `Enabled task \`${id}\`.` : `No task found with id \`${id}\`.`);
         return;
       }
 
-      // !schedule disable <id>
+      // !task disable <id>
       if (sub === 'disable') {
         const id = command.args[1];
         if (!id) {
-          await message.reply(`Usage: \`${prefix}schedule disable <id>\``);
+          await message.reply(`Usage: \`${prefix}task disable <id>\``);
           return;
         }
         const ok = await disableTask(id, logger);
-        await message.reply(ok ? `Disabled schedule \`${id}\`.` : `No schedule found with id \`${id}\`.`);
+        await message.reply(ok ? `Disabled task \`${id}\`.` : `No task found with id \`${id}\`.`);
         return;
       }
 
-      // !schedule run <id>
+      // !task run <id>
       if (sub === 'run') {
         const id = command.args[1];
         if (!id) {
-          await message.reply(`Usage: \`${prefix}schedule run <id>\``);
+          await message.reply(`Usage: \`${prefix}task run <id>\``);
           return;
         }
         const ok = await runTaskNow(id, logger);
-        await message.reply(ok ? `Triggered schedule \`${id}\`.` : `No schedule found with id \`${id}\`.`);
+        await message.reply(ok ? `Triggered task \`${id}\`.` : `No task found with id \`${id}\`.`);
         return;
       }
 

@@ -4,14 +4,36 @@ A modular, modern Discord bot for server management, moderation, scheduling, and
 
 ## Features
 
+- **Web Panel** — browser-based panel for managing config, tasks, filters, the kick list, tickets, logs, and stats.
+
+* **Invite Tracking & Panel** — create, track, and manage Discord invite links from the panel. Tracked uses update in real time as invites are used.
+
+## Invite Tracking & Panel
+
+You can create, view, and delete Discord invite links directly from the web panel. The panel displays the number of times each invite has been used (tracked uses), and this count updates automatically in real time as users join with your invites.
+
+**How it works:**
+
+- The bot listens for new members joining and updates the tracked uses for each invite.
+- The panel polls the backend every 5 seconds to show the latest tracked uses for each invite.
+- You can delete invites from the panel, and create new ones for any channel.
+
+**Fields shown in the panel:**
+
+- Invite URL
+- Channel
+- Tracked Uses (updates live)
+- Max Uses
+- Max Age
+
 - **Message Filtering** — detects and removes filtered words. Moderators are exempt.
 - **Auto Kicker** — persistent kick list; listed users are kicked immediately when added or on join.
 - **Ban Command** — `!ban` issues a Discord ban via the API, with an optional reason and configurable message deletion window.
 - **Ticket System** — messages in the `issues` channel are saved as JSON tickets with an AI-suggested moderator action.
 - **Onboarding** — reaction-based onboarding; users react 👍 to the rules message to receive the `Trusted` role.
-- **Scheduler** — run channel messages on interval (`30s`, `5m`, `2h`, `1d`, `1w`) or cron schedules.
+- **Task Scheduler** — run channel messages on interval (`30s`, `5m`, `2h`, `1d`, `1w`) or cron schedules.
 - **Server Stats** — tracks messages, commands, filtered messages, tickets, kicks, user joins/leaves, tasks run, and role counts. Snapshots daily.
-- **Web Panel** — browser-based panel for managing config, schedules, filters, the kick list, tickets, logs, and stats.
+- **Web Panel** — browser-based panel for managing config, tasks, filters, the kick list, tickets, logs, and stats.
 - **Terminal Interface** — interactive prompt with persistent command history for running commands at runtime.
 - **AI Integration** — optional Ollama-powered `!ask` command and ticket action suggestions.
 - **Audit Logging** — logs message edits/deletes, member joins/leaves, role changes, bans, voice events, and more.
@@ -106,25 +128,26 @@ Use the `!` prefix in Discord or no prefix in the terminal.
 
 ### Moderation
 
-| Command                                | Description                                    | Permission        |
-| -------------------------------------- | ---------------------------------------------- | ----------------- |
-| `!addfilter <word>`                    | Adds a word to the filter list                 | Moderators only   |
-| `!removefilter <word>`                 | Removes a word from the filter list            | Moderators only   |
-| `!kick <userId> [...]`                 | Adds one or more users to the auto-kicker list | Moderators only   |
-| `!unkick <userId>`                     | Removes a user from the auto-kicker list       | Moderators only   |
-| `!ban <userId> [...] [reason: <text>]` | Issues a Discord ban (optionally with reason)  | `BanMembers` perm |
+| Command                                          | Description                                         | Permission        |
+| ------------------------------------------------ | --------------------------------------------------- | ----------------- |
+| `!addfilter <word>`                              | Adds a word to the filter list                      | Moderators only   |
+| `!removefilter <word>`                           | Removes a word from the filter list                 | Moderators only   |
+| `!kick <userId> [userId2 ...]`                   | Adds one or more users to the auto-kicker list      | Moderators only   |
+| `!unkick <userId>`                               | Removes a user from the auto-kicker list            | Moderators only   |
+| `!ban <userId> [userId2 ...] [reason: <text>]`   | Bans one or more users (optionally with a reason)   | `BanMembers` perm |
+| `!unban <userId> [userId2 ...] [reason: <text>]` | Unbans one or more users (optionally with a reason) | `BanMembers` perm |
 
-### Scheduler
+### Tasks
 
-| Command                                                         | Description               | Permission      |
-| --------------------------------------------------------------- | ------------------------- | --------------- |
-| `!schedule list`                                                | Lists all scheduled tasks | Moderators only |
-| `!schedule add <id> interval <duration> <channel> <message>`    | Adds an interval task     | Moderators only |
-| `!schedule add <id> cron <m h dom mon dow> <channel> <message>` | Adds a cron task          | Moderators only |
-| `!schedule remove <id>`                                         | Removes a task            | Moderators only |
-| `!schedule enable <id>`                                         | Enables a task            | Moderators only |
-| `!schedule disable <id>`                                        | Disables a task           | Moderators only |
-| `!schedule run <id>`                                            | Runs a task immediately   | Moderators only |
+| Command                                                     | Description               | Permission      |
+| ----------------------------------------------------------- | ------------------------- | --------------- |
+| `!task list`                                                | Lists all scheduled tasks | Moderators only |
+| `!task add <id> interval <duration> <channel> <message>`    | Adds an interval task     | Moderators only |
+| `!task add <id> cron <m h dom mon dow> <channel> <message>` | Adds a cron task          | Moderators only |
+| `!task remove <id>`                                         | Removes a task            | Moderators only |
+| `!task enable <id>`                                         | Enables a task            | Moderators only |
+| `!task disable <id>`                                        | Disables a task           | Moderators only |
+| `!task run <id>`                                            | Runs a task immediately   | Moderators only |
 
 Duration examples: `30s`, `5m`, `2h`, `1d`, `1w`  
 Cron example: `0 9 * * 1` (every Monday at 09:00)
@@ -141,7 +164,7 @@ Cron example: `0 9 * * 1` (every Monday at 09:00)
 ```
 ripcord > addfilter badword
 ripcord > kick 214898255698460673
-ripcord > schedule list
+ripcord > task list
 ripcord > restart
 ```
 
@@ -158,36 +181,45 @@ Terminal command history is persisted across restarts (`data/terminal-history.js
 
 All configuration is environment-based. Edit `.env`:
 
-| Variable                | Description                          | Default                 |
-| ----------------------- | ------------------------------------ | ----------------------- |
-| `DISCORD_TOKEN`         | Your Discord bot token               | _(required)_            |
-| `COMMAND_PREFIX`        | Command prefix                       | `!`                     |
-| `ENABLE_CONSOLE`        | Enable console output                | `true`                  |
-| `ENABLE_FILE_LOGGING`   | Enable file logging                  | `true`                  |
-| `LOGS_PATH`             | Log file directory                   | `logs`                  |
-| `ENABLE_FILTERING`      | Enable message filtering             | `true`                  |
-| `FILTERED_WORDS_DIR`    | Directory for filtered words file    | `data`                  |
-| `FILTERED_WORDS_FILE`   | Filtered words filename              | `filtered-words.json`   |
-| `OLLAMA_MODEL`          | Ollama model name                    | `mistral`               |
-| `ENABLE_TICKETS`        | Enable ticket system                 | `true`                  |
-| `TICKET_CHANNEL`        | Channel name for tickets             | `issues`                |
-| `TICKET_DIRECTORY_PATH` | Directory for ticket JSON files      | `tickets`               |
-| `CHAT_CHANNEL`          | General chat channel name            | `chat`                  |
-| `MODERATOR_CHANNEL`     | Private moderator channel name       | `moderators`            |
-| `WELCOME_CHANNEL`       | Welcome/onboarding channel name      | `welcome`               |
-| `MODERATOR_ROLE`        | Moderator role name                  | `Moderator`             |
-| `TRUSTED_ROLE`          | Trusted member role name             | `Trusted`               |
-| `SERVER_STATS_PATH`     | Directory for server stats file      | `data`                  |
-| `SERVER_STATS_FILE`     | Server stats filename                | `server-stats.json`     |
-| `SERVER_RULES_ID_PATH`  | Directory for rules message ID file  | `data`                  |
-| `SERVER_RULES_ID_FILE`  | Rules message ID filename            | `server-rules-id.json`  |
-| `AUTO_KICKER_PATH`      | Directory for auto-kicker list file  | `data`                  |
-| `AUTO_KICKER_FILE`      | Auto-kicker list filename            | `autokicker.json`       |
-| `SCHEDULES_PATH`        | Directory for schedules file         | `data`                  |
-| `SCHEDULES_FILE`        | Schedules filename                   | `schedules.json`        |
-| `API_PORT`              | Port for the bot's HTTP API          | `3001`                  |
-| `API_TOKEN`             | Bearer token for API auth (optional) |                         |
-| `PANEL_ORIGIN`          | Allowed CORS origin for the panel    | `http://localhost:5173` |
+| Variable                 | Description                          | Default                  |
+| ------------------------ | ------------------------------------ | ------------------------ |
+| `DISCORD_TOKEN`          | Your Discord bot token               | _(required)_             |
+| `COMMAND_PREFIX`         | Command prefix                       | `!`                      |
+| `SERVER_TITLE`           | Server title (for display)           | `Ripcord`                |
+| `TEXT_CHANNELS_CATEGORY` | Name of the text channels category   | `text channels`          |
+| `ENABLE_CONSOLE`         | Enable console output                | `true`                   |
+| `ENABLE_FILE_LOGGING`    | Enable file logging                  | `true`                   |
+| `LOGS_PATH`              | Log file directory                   | `logs`                   |
+| `CHAT_CHANNEL`           | General chat channel name            | `chat`                   |
+| `MODERATOR_CHANNEL`      | Private moderator channel name       | `moderators`             |
+| `TICKET_CHANNEL`         | Channel name for tickets             | `issues`                 |
+| `WELCOME_CHANNEL`        | Welcome/onboarding channel name      | `welcome`                |
+| `MODERATOR_ROLE`         | Moderator role name                  | `Moderator`              |
+| `TRUSTED_ROLE`           | Trusted member role name             | `Trusted`                |
+| `ENABLE_FILTERING`       | Enable message filtering             | `true`                   |
+| `FILTERED_WORDS_DIR`     | Directory for filtered words file    | `data`                   |
+| `FILTERED_WORDS_FILE`    | Filtered words filename              | `filtered-words.json`    |
+| `SERVER_STATS_PATH`      | Directory for server stats file      | `data`                   |
+| `SERVER_STATS_FILE`      | Server stats filename                | `server-stats.json`      |
+| `OLLAMA_MODEL`           | Ollama model name                    | `mistral`                |
+| `ENABLE_TICKETS`         | Enable ticket system                 | `true`                   |
+| `TICKET_DIRECTORY_PATH`  | Directory for ticket JSON files      | `tickets`                |
+| `ENABLE_ONBOARDING`      | Enable onboarding flow               | `true`                   |
+| `SCHEDULES_PATH`         | Directory for scheduled tasks file   | `data`                   |
+| `SCHEDULES_FILE`         | Scheduled tasks filename             | `schedules.json`         |
+| `INVITES_PATH`           | Directory for invites file           | `data`                   |
+| `INVITES_FILE`           | Invites filename                     | `invites.json`           |
+| `AUTO_KICKER_PATH`       | Directory for auto-kicker list file  | `data`                   |
+| `AUTO_KICKER_FILE`       | Auto-kicker list filename            | `kicked-users.json`      |
+| `BANNED_USERS_PATH`      | Directory for banned users list file | `data`                   |
+| `BANNED_USERS_FILE`      | Banned users list filename           | `banned-users.json`      |
+| `SERVER_RULES_ID_PATH`   | Directory for rules message ID file  | `data`                   |
+| `SERVER_RULES_ID_FILE`   | Rules message ID filename            | `server-rules-id.json`   |
+| `CATEGORY_TITLE_ID_PATH` | Directory for category title ID file | `data`                   |
+| `CATEGORY_TITLE_ID_FILE` | Category title ID filename           | `category-title-id.json` |
+| `API_PORT`               | Port for the bot's HTTP API          | `3001`                   |
+| `API_TOKEN`              | Bearer token for API auth (optional) |                          |
+| `PANEL_ORIGIN`           | Allowed CORS origin for the panel    | `http://localhost:5173`  |
 
 ##
 
